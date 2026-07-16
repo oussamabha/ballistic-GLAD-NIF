@@ -1,0 +1,24 @@
+{
+  "80": {
+    "train_alphas": [
+      65,
+      70,
+      75,
+      85,
+      87,
+      89
+    ],
+    "occ_train_region": 0.23282644628099172,
+    "iou_train_region": 0.23283106441780663,
+    "delta_train_region": 4.618136814904528e-06,
+    "prec_train_region": 0.23283106441780663,
+    "rec_train_region": 1.0,
+    "spread_train_region": 0.32557201385498047,
+    "occ_holdout": 0.22969333333333333,
+    "iou_holdout": 0.22980004012572727,
+    "delta_holdout": 0.00010670679239394021,
+    "spread_holdout": 0.3227546513080597,
+    "best_epoch": 191,
+    "val_bce": 0.6651419997215271
+  }
+}

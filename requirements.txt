@@ -1,0 +1,13 @@
+# Core numerical / ML stack used across the simulator and NIF/CorrNIF code.
+numpy
+scipy
+matplotlib
+torch>=2.0
+pyyaml
+
+# GPU-accelerated ray-marching in the ballistic simulator (code/simulation/glad_v3_core.py).
+# Requires an NVIDIA GPU + CUDA toolkit. Pick the cupy wheel matching your CUDA version, e.g.:
+#   pip install cupy-cuda12x
+# The simulator will not run without this; everything under code/nif_corrnif/ only needs
+# numpy/scipy/torch/matplotlib and runs fine on CPU (see individual script docstrings).
+# cupy-cudaXXx
