@@ -1258,6 +1258,216 @@ magnitude.
   \end{tabular}
 \end{table}
 
+\subsection{Architecture-independent cross-validation: classical reconstruction and global connectivity agree with the diagnosis}
+\label{ssec:disc_crossval}
+
+Every remedy tested above (Fix A/B/C, and the seed-isolation ablation) is a
+point-wise, coordinate-conditioned neural model. A reasonable objection is
+that the failure is specific to that model family -- some other, non-neural
+approach might recover the missing structure. We tested this directly with
+two architecture-independent checks that use no coordinate-conditioned neural
+network at all: a classical stochastic-reconstruction baseline, and an
+independently-computed global connectivity descriptor from a separate
+simulation campaign. Both converge on the same conclusion as Fix C.
+
+\paragraph{A classical stochastic-reconstruction baseline.}
+Two-point correlation functions do not, in general, uniquely determine a
+microstructure realization~\citep{yeong1998reconstructing} -- but the
+size of that gap is an empirical question for any specific material system,
+not a foregone conclusion. We measured it directly for these films using the
+Yeong--Torquato swap-based simulated-annealing algorithm: for each
+$\ang$, every $z$-slice of the true occupancy volume is reconstructed from
+scratch, starting from a random binary field at the correct volume fraction
+$\phi$ and repeatedly swapping an occupied/unoccupied voxel pair whenever the
+swap reduces the squared error between the candidate's radially-averaged
+two-point correlation $S_2(r)$ (periodic boundary, $r=1$--$12$ voxels, short
+range $r\!\leq\!3$ weighted $4\times$) and the true slice's $S_2(r)$, at fixed
+temperature schedule ($T_0=0.004$, geometric cooling, $18{,}000$ swaps per
+slice). Because every accepted move is a $1\leftrightarrow0$ swap, $\phi$ is
+matched exactly by construction; only $S_2(r)$ is optimized. Reconstructed
+slices are then scored against the true slice with the same IoU metric used
+throughout Table~\ref{tab:hard_iou}.
+
+\textbf{Scope caveat, stated explicitly:} this is a different task from the
+one Fix A/B/C were scored on. Fix A/B/C fit one coordinate function
+$f(x,y,z,\ang)\!\to\!$occupancy jointly across all nine $\ang$, evaluated on
+held-out voxel \emph{samples} pooled across angles. The reconstruction here
+instead asks a complementary, arguably more information-scarce question: with
+\emph{no} cross-angle training and \emph{no} coordinate signal at all -- only
+the volume fraction and two-point correlation of one realization, measured
+on that same realization -- how much of it can be recovered? It is an
+information-theoretic ceiling test, not a drop-in fourth entry in
+Table~\ref{tab:hard_iou}.
+
+Table~\ref{tab:yt_baseline} gives the result at all nine angles ($25$ of
+$151$ $z$-slices sampled per angle, seed~0). At every non-degenerate angle,
+the swap-based search closes $70$--$96\%$ of the initial random-field
+$S_2$-matching error -- i.e., it finds a configuration whose two-point
+correlation function is very close to the true one -- yet IoU against the
+true realization remains low and falls monotonically as $\phi$ decreases.
+$\ang=60^{\circ}$ is a degenerate near-empty case ($\phi\!\approx\!0.002$)
+included for completeness. \textbf{A classical algorithm operating directly
+on nearly-exact second-order statistics, with no architecture to blame,
+cannot recover the realization either.} This rules out a specific class of
+counter-explanation for the neural failure (that the tested architectures
+were simply the wrong ones) without weakening the diagnosis: the missing
+information is not resident in any second-order statistic of the film, for
+any method tested.
+
+\begin{table}[htbp]
+  \centering
+  \caption{%
+    Yeong--Torquato classical stochastic-reconstruction baseline, all nine
+    trained angles (seed~0, $25/151$ $z$-slices sampled per angle).
+    $S_2$ error closure: $1 - (\text{final squared } S_2 \text{ error} /
+    \text{initial random-field squared } S_2 \text{ error})$, i.e.\ how much
+    of the gap to a perfect two-point-correlation match was closed by the
+    swap-based search. IoU computed against ground truth on the same
+    sampled slices. $\ang=60^{\circ}$ is near-empty
+    ($\phi\!\approx\!0.002$) and included only for completeness.
+  }
+  \label{tab:yt_baseline}
+  \begin{tabular}{lccc}
+    \toprule
+    $\ang$ (°) & $\phi$ (occupancy) & $S_2$ error closure & IoU \\
+    \midrule
+    60 & 0.000 & --  (degenerate) & 1.000 \\
+    65 & 0.612 & 93\% & 0.468 \\
+    70 & 0.486 & 95\% & 0.338 \\
+    72 & 0.458 & 96\% & 0.317 \\
+    75 & 0.278 & 94\% & 0.172 \\
+    80 & 0.221 & 92\% & 0.132 \\
+    85 & 0.121 & 85\% & 0.068 \\
+    87 & 0.072 & 70\% & 0.046 \\
+    89 & 0.011 & -- (already near target) & 0.007 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Cross-referencing an independently-computed global connectivity descriptor.}
+A separate simulation campaign (27 runs: all nine $\ang$ $\times$ three
+seeds, frozen periodic connected-component analysis, $0.5$\,nm voxels,
+film band $z\in[10\text{nm}, 0.90H]$) computed the largest connected-component
+fraction (LF) -- the coarsest possible topology descriptor -- independently
+of both P2's NIF work and the reconstruction above. Table~\ref{tab:topology_crossref}
+reports, for each $\ang$, the seed-to-seed spread of LF and of volume
+occupancy from that campaign, alongside whether Fix C tested that angle
+directly.
+
+\begin{table}[htbp]
+  \centering
+  \caption{%
+    Global connectivity (largest-fraction, LF) and occupancy, mean and
+    seed-to-seed spread (max$-$min over 3 seeds), from an independently-run
+    27-run topology sweep. LF spread is $0.00000$ up to $\ang=80^{\circ}$ and
+    reaches only $0.013$ at the most stochastic angle tested
+    ($89^{\circ}$) -- versus the $9$--$15\%$ \emph{pixel-level} seed
+    disagreement Fix C measured directly on the observed region at
+    $\ang=85^{\circ}$ (Section~\ref{ssec:disc_tier2}).
+  }
+  \label{tab:topology_crossref}
+  \begin{tabular}{lcccc}
+    \toprule
+    $\ang$ (°) & occupancy (mean, spread) & LF (mean, spread) & Fix C tested? \\
+    \midrule
+    60--75 & 0.63--0.83, $\leq$0.003 & 1.0000, 0.00000 & no \\
+    80     & 0.500, 0.0024           & 1.0000, 0.00000 & yes -- saturated, no signal \\
+    85     & 0.304, 0.0032           & 0.9999, 0.00015 & yes -- real pixel-level signal, unexploited \\
+    87     & 0.198, 0.0018           & 0.9969, 0.00262 & no \\
+    89     & 0.086, 0.0062           & 0.9822, 0.01306 & no \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Global connectivity is essentially seed-invariant at every angle tested --
+literally deterministic to five decimal places up to $\ang=80^{\circ}$, and
+still within $1.3$ percentage points at $89^{\circ}$ -- a roughly
+$60$--$100\times$ gap relative to the $9$--$15\%$ pixel-level seed
+disagreement Fix C independently measured at $\ang=85^{\circ}$.
+
+A fourth check probes the same question one architecture class earlier and
+more cheaply than a full training run: does giving a model explicit spatial
+structure -- rather than richer coordinate encoding, a different loss, or
+partial-realization conditioning with an MLP head -- change the outcome? A
+small 3D U-Net (3 levels, 16/32/64 channels) was built to take the
+coordinate-conditioned inputs used throughout this paper (voxel height and
+$\ang$, broadcast constant over $x,y$ within each height, so that no ground-truth
+occupancy is ever fed to the model) and predict full-volume occupancy patches.
+Before any training-set evaluation, this architecture must pass a standard
+sanity gate: it should be able to drive the loss to $\approx 0$ by memorizing
+a single fixed $32^3$ patch. It could not. Three loss variants -- focal loss
+at the paper's default weighting, focal loss re-weighted for the patch's
+$13\%$ positive-voxel fraction, and plain binary cross-entropy -- all
+plateaued at the same IoU ($0.47$--$0.56$), independent of the loss function
+used. An ablation isolates the cause: adding two explicit $x,y$ coordinate
+channels (not a viable input for real training, since it would let the model
+memorize absolute position rather than generalize across patches) raises the
+memorization IoU to $1.000$ in the same protocol. The mechanism is a direct
+consequence of the input design, not an optimization or capacity failure:
+height- and angle-only conditioning is constant over $x,y$ at fixed height, and
+a translation-equivariant convolutional network maps a spatially-constant
+input field to a spatially-constant output field (up to boundary effects),
+so it cannot represent an $x,y$-varying occupancy texture from this input by
+construction. Spatial inductive bias alone therefore does not remedy the
+non-identifiability documented above -- a CNN is subject to the same ceiling
+as the point-wise architectures of Table~\ref{tab:hard_iou} whenever it is
+given the same coordinate-only information, and giving it more (absolute
+position) would trade the diagnosis for label leakage rather than resolve it.
+
+A related but distinct question is whether Fix C's own encoder -- which
+\emph{does} have access to real, per-realization structural information (the
+observed near-substrate region) rather than coordinates alone -- was limited
+by its specific implementation rather than by the underlying task. Inspecting
+that encoder shows it ends in a global-average-pooling layer, collapsing the
+entire observed-region footprint into one vector before the FiLM-modulated
+decoder ever sees it -- a bottleneck that discards exactly the per-column
+spatial information the causal-substitution diagnosis in
+Section~\ref{ssec:disc_tier2} showed is present at $\ang=85^{\circ}$
+($9$--$15\%$ pixel-level variation across seeds). We therefore built a second
+variant that avoids this specific bottleneck: a resolution-preserving 2D
+encoder over the observed map, with each query point's prediction
+pixel-aligned to its own $(x,y)$ location in that feature map via bilinear
+sampling (local, not global, conditioning), replacing FiLM modulation with
+direct concatenation. Before any full-scale training, this architecture was
+required to pass the same class of sanity check as the coordinate-only CNN
+above -- memorize a small subset of one realization's own points -- and it
+did, reaching perfect accuracy in under $150$ steps, confirming the pathway
+can carry and exploit local information when a target is directly
+learnable from it. Trained on the full partial-conditioning dataset and
+evaluated with the identical causal-substitution permutation test used for
+the original Fix C, the result is unchanged: same- and cross-realization
+vertical-profile correlations remain statistically indistinguishable at both
+tested angles (Mann--Whitney $p=0.64$ at $\ang=80^{\circ}$, $p=0.49$ at
+$\ang=85^{\circ}$ -- if anything weaker separation than the original
+FiLM-based Fix C's $p=0.36$/$p=0.55$), with same-realization predictions
+differing from cross-realization substitutions by no more than ordinary
+run-to-run noise (e.g.\ $0.339$ same vs.\ $0.328$--$0.340$ across all seven
+substituted sources, for a representative $\ang=85^{\circ}$ query). This
+rules out the global-pooling bottleneck as \emph{the} explanation for Fix
+C's failure: even a properly spatially-resolved, sanity-checked conditioning
+pathway is not exploited once trained at scale, strengthening rather than
+weakening the case that the observed-to-target correlation this task
+requires is either too weak to detect at the realization counts available or
+absent altogether in this class of stochastically-nucleated film, independent
+of which of the encoder architectures tested here is used to try to extract
+it.
+
+\paragraph{Synthesis.} Five independent methods, on five independent analyses
+of these films -- Fix C's causal-substitution permutation test (both its
+original FiLM-based encoder and the pixel-aligned local-conditioning variant
+above), the 27-run topology sweep, the Yeong--Torquato reconstruction above,
+and the coordinate-ablation check on a spatially-aware architecture --
+converge on one conclusion: seed-to-seed stochasticity in these films is real,
+substantial at the pixel level, and essentially invisible to every low-order
+descriptor tested (connectivity class, volume fraction, two-point
+correlation), regardless of whether that descriptor is consumed by a
+point-wise neural network, a spatially-convolutional one, a classical
+optimizer, or read directly off an independently-computed statistic. The
+negative result in Table~\ref{tab:hard_iou} is therefore not attributable to
+the specific architectures tried in this paper; it reflects where the
+recoverable information genuinely is (and is not) in this class of
+stochastically-nucleated GLAD film.
+
 \subsection{Limitations}
 \label{ssec:disc_limits}
 
