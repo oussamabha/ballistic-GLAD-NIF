@@ -201,33 +201,50 @@
 % negative finding.
 
 \begin{abstract}
-Neural implicit fields (\nif{}) are a compact, coordinate-based candidate
-surrogate for ballistic helical glancing-angle deposition (GLAD)
-simulations, potentially replacing a full simulator run with a fast lookup
-from deposition angle $\ang$ and spatial coordinates $(x,y,z)$ to film
-morphology. We report three successive results. A \film{}-conditioned \nif{}
-variant reconstructs the full 3D density field with mean spatial Pearson
-$r=0.984$ within a $75$--$87^{\circ}$ training window (positive within-window
-only). Trained instead on binary voxel occupancy with Gaussian-smeared
-labels, the same architecture collapses to the trivial predictor at every
-angle ($\Delta\iou<0.003$); an independently reproduced $(\alpha,z)$-oracle
-diagnostic shows this is a labelling-scheme failure, not architecture or
-depth-signal limitation -- $90$--$98\%$ of soft labels fall in $(0.1,0.9)$,
-eliminating binary boundary gradients. Hard binary labels restore genuine
-spatial learning but only at the sparsest film ($\ang=89^{\circ}$,
-$\Delta\iou=+0.029$); denser angles remain trivial. Three further remedies
--- a multi-resolution hash-grid encoder, continuous-density regression, and
-partial-realization conditioning (damped and fully unclamped \film{}
-variants) -- all fail to produce non-trivial spatial learning at the
-multi-seed test angles. For partial-realization conditioning, we directly
-tested whether too few realizations (three per angle) was the cause by
-enlarging one angle to eight realizations and retraining: the permutation
-test still fails for both \film{} variants ($p=0.35$, $p=0.53$; $56$
-cross-realization pairs), ruling out the practically-achievable
-data-scarcity explanation. The result is a verified, stepwise diagnostic
-framework for voxel-level occupancy prediction in GLAD simulators, and a
-tested, strengthened negative conclusion: no remedy explored here,
-including more data, resolves the underlying non-identifiability.
+A neural implicit field (\nif{}) is a compact machine-learning model that
+takes a small set of numbers as input -- here, the deposition angle $\ang$
+and a point's spatial coordinates $(x,y,z)$ -- and outputs a prediction,
+offering a potentially much faster alternative to a full physics simulation
+for predicting film structure in ballistic helical glancing-angle
+deposition (GLAD). We report three successive attempts to build such a
+model, each diagnosing why the previous one fell short. First, a variant
+conditioned on a reference simulation via feature-wise linear modulation
+(\film{}) successfully reconstructs the full 3D density field, with mean
+spatial Pearson correlation $r=0.984$ -- but only for deposition angles
+within the $75$--$87^{\circ}$ range it was trained on, not beyond it.
+Second, when instead trained to predict binary voxel occupancy (whether a
+given point is solid or empty) using softened training labels, the same
+architecture collapses to the trivial prediction (always guessing the same
+value) at every angle, with essentially no improvement over that trivial
+baseline ($\Delta\iou<0.003$). An independently reproduced diagnostic test
+-- an $(\alpha,z)$-oracle check -- isolates the cause precisely: this is a
+failure of how the training labels were constructed, not a limitation of
+the model architecture or a lack of depth information in the input --
+$90$--$98\%$ of the softened labels fall in an ambiguous middle range
+$(0.1,0.9)$, which removes the sharp boundary signal the model needs to
+learn from. Switching to sharp (hard binary) labels restores genuine
+spatial learning, but only for the most sparsely-packed film in the dataset
+($\ang=89^{\circ}$, improvement $\Delta\iou=+0.029$); denser films remain
+unlearnable. We then tested three further fixes -- a higher-resolution
+multi-resolution hash-grid input encoding, predicting a continuous density
+instead of binary occupancy, and conditioning the model on a partial
+(incomplete) realization of the film (damped and fully unclamped \film{}
+variants) -- and none produced meaningful spatial learning at the angles
+where multiple independent simulation runs were available for testing. For
+the partial-realization approach specifically, we checked directly whether
+the problem was simply too few independent runs to learn from (three per
+angle): enlarging one angle's dataset to eight independent runs and
+retraining did not help -- a statistical permutation test still shows no
+learned signal for either \film{} variant tested ($p=0.35$ and $p=0.53$,
+across $56$ pairs of runs compared), ruling out limited data as the
+explanation. The result is both a verified, step-by-step diagnostic
+framework for this class of failure in GLAD voxel-occupancy prediction, and
+a tested, strengthened negative conclusion: none of the remedies explored
+here, including simply providing more training data, resolves the
+underlying non-identifiability -- multiple film realizations grown under
+identical conditions are genuinely indistinguishable from coordinates and
+angle alone, which is exactly the signal a spatial coordinate-based model
+would need in order to learn a meaningful occupancy boundary.
 \end{abstract}
 
 \medskip
