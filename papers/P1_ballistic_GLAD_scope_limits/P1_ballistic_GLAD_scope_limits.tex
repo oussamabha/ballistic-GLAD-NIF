@@ -1689,12 +1689,17 @@ at a known angle.
 
 We do \emph{not} claim this recovers the true angle exactly: the recovered
 $71.183^{\circ}$ differs from the actual deposition angle,
-$\dang=72^{\circ}$, by $0.82^{\circ}$. This residual is consistent with,
-not larger than, the interpolation error already reported for this same
-target curve in Section~\ref{ssec:nif_prospective}
-($R^2=0.9907$, RMSE~$=0.0186$)---the inverse recovery is limited by the same
-finite-capacity, finite-training-grid interpolation error as the forward
-prediction, not by a failure of the optimisation procedure itself, which is
+$\dang=72^{\circ}$, by $0.82^{\circ}$. We do not claim this residual is
+formally comparable in magnitude to the curve-fit error reported for this
+same target curve in Section~\ref{ssec:nif_prospective}
+($R^2=0.9907$, RMSE~$=0.0186$): an angular residual (degrees) and a
+curve-shape RMSE (dimensionless $h_g$ units) are different quantities, and
+no error-propagation relating them is derived here. Qualitatively, the
+$0.82^{\circ}$ residual is small relative to the $5^{\circ}$ spacing
+between the nearest training angles ($70^{\circ}$, $75^{\circ}$), consistent
+with the inverse recovery being limited by the same finite-capacity,
+finite-training-grid interpolation imperfection as the forward prediction,
+rather than by a failure of the optimisation procedure itself, which is
 independently validated by the exact grid-search agreement above. The
 demonstration therefore substantiates the differentiability advantage as
 claimed: a genuine gradient-based query is usable in practice, at a

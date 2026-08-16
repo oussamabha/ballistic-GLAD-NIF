@@ -237,7 +237,14 @@ angle): enlarging one angle's dataset to eight independent runs and
 retraining did not help -- a statistical permutation test still shows no
 learned signal for either \film{} variant tested ($p=0.35$ and $p=0.53$,
 across $56$ pairs of runs compared), ruling out limited data as the
-explanation. The result is both a verified, step-by-step diagnostic
+explanation. This diagnosis is further corroborated by four additional,
+architecture-independent checks -- a classical stochastic-reconstruction
+baseline, an independently-computed global-connectivity descriptor, a
+spatially-aware convolutional network, and a resolution-preserving
+local-conditioning variant -- which all converge on the same conclusion:
+the missing information is not resident in any low-order structural
+descriptor of these films, for any method tested. The result is both a
+verified, step-by-step diagnostic
 framework for this class of failure in GLAD voxel-occupancy prediction, and
 a tested, strengthened negative conclusion: none of the remedies explored
 here, including simply providing more training data, resolves the
@@ -1626,6 +1633,36 @@ Section~\ref{sec:intro}, in the same order.
     result rather than an artefact of insufficient data, pending
     architectural or objective-function changes not explored here.
 \end{itemize}
+
+This diagnosis is further strengthened by four architecture-independent
+cross-checks (Section~\ref{ssec:disc_crossval}) that use no
+coordinate-conditioned neural network at all: a classical Yeong--Torquato
+stochastic-reconstruction baseline, operating directly on the two-point
+correlation function of each realization, closes $70$--$96\%$ of the
+initial random-field correlation-matching error yet still recovers only
+$7$--$47\%$ intersection-over-union with the true realization at
+non-degenerate angles; an independently-run 27-configuration topology
+sweep shows the global largest-connected-fraction descriptor is
+seed-invariant to five decimal places up to $\ang=80^{\circ}$ and within
+$1.3$ percentage points at $\ang=89^{\circ}$, a $60$--$100\times$ gap
+relative to the $9$--$15\%$ pixel-level seed disagreement measured
+directly; a coordinate-conditioned convolutional network is shown, by
+construction, to be representationally incapable of producing an
+$x,y$-varying occupancy texture from height/angle-only input; and a
+spatially-resolved, sanity-checked local-conditioning variant of the
+partial-realization encoder -- built specifically to rule out the
+global-average-pooling bottleneck of the original encoder -- still shows
+no learned signal once trained at scale. Five independent methods, on
+five independent analyses of these films, therefore converge on one
+conclusion: seed-to-seed stochasticity in these films is real,
+substantial at the pixel level, and essentially invisible to every
+low-order descriptor tested, regardless of whether that descriptor is
+consumed by a point-wise neural network, a spatially-convolutional one, a
+classical optimizer, or read directly off an independently-computed
+statistic. The negative result is therefore not attributable to the
+specific architectures tried in this paper; it reflects where the
+recoverable information genuinely is (and is not) in this class of
+stochastically-nucleated GLAD film.
 
 These results establish a stepwise label-quality diagnosis
 framework — soft-zone fraction analysis, oracle predictor test,

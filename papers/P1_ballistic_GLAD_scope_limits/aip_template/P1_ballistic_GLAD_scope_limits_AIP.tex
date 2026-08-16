@@ -81,39 +81,55 @@
 \date{\today}
 
 \begin{abstract}
-Glancing-angle deposition (GLAD) links a single controlled parameter, the
-deposition angle $\dang$, to film porosity and to the optical anisotropy
-relevant to gas-sensor and polarimetric-device performance, but the range of
-structural information a ballistic simulator can predict from $\dang$ has not
-been systematically established. We characterise a bead-sphere ballistic
-GLAD simulator across twelve helical Cu configurations
-($\dang=60^{\circ}$--$89^{\circ}$, $h=\SI{300}{nm}$, pitch$=\SI{150}{nm}$).
-Void fraction increases monotonically from $88.1\%$ to $98.5\%$ with
-sub-$0.25\%$ seed-to-seed variability at this box/height convention (degrading
-at larger lateral box size; Appendix~\ref{app:boxconv}). A corotating-frame
-oracle test shows absolute column positions carry no realization-invariant
-signal recoverable by a coordinate-conditioned model, establishing this
-boundary of predictive reach as a central, deliberately reported result. By
-contrast, the two-point pair correlation $h_g(r;\dang)$ is reproducible and
-varies smoothly with $\dang$: a compact emulator (\textsc{CorrNIF}) reproduces
-held-out angles with interior leave-one-angle-out $R^2=0.992$, though not
-more accurately than simple linear or PCHIP interpolation on the same folds,
-and reproduces a genuinely unseen prospective angle ($\dang=72^{\circ}$,
-confirmed by a dedicated simulation) with $R^2=0.9907$, again no better than
-linear interpolation ($R^2=0.9909$). \textsc{CorrNIF}'s only demonstrated
-advantage over these simpler baselines is exercised directly: gradient
-descent through the frozen, trained model recovers the deposition angle
-behind a held-out target curve from five different starting points to the
-same value, matching an independent grid search to within $0.002^{\circ}$.
-An illustrative aligned-cylinder
-Maxwell-Garnett calculation for tungsten columns gives form birefringence
-$\Delta n\sim 0.3$--$0.8$, but strong extraordinary absorption and
-sensitivity to the filling-fraction definition mean no polarimetric design
-window can be claimed; this is reported as a loss-aware screening
-illustration, not a device prediction. The result is a simulation-only
-workflow for ranking helical GLAD geometries by ensemble morphology, with the
-limits of predictive reach established as an explicit finding and
-quantitative optical/material calibration left to dedicated experiments.
+Glancing-angle deposition (GLAD) grows structured thin films by depositing
+material onto a substrate held at an oblique angle; a single control
+parameter, the deposition angle $\dang$, governs both how porous the
+resulting film is and how differently it interacts with light polarized
+along different directions -- properties relevant to gas sensors and
+polarization-based optical devices. What has not been established is how
+much of a film's internal structure a simplified, physics-based computer
+model can actually predict from $\dang$ alone. We address this with a
+ballistic simulator, in which atoms are treated as hard spheres that stick
+wherever they first touch the growing film, with no surface diffusion,
+across twelve helical-rotation Cu film configurations
+($\dang=60^{\circ}$--$89^{\circ}$, height $h=\SI{300}{nm}$, helical
+pitch$=\SI{150}{nm}$). Void fraction (the empty-space fraction of the film)
+increases monotonically from $88.1\%$ to $98.5\%$ with $\dang$, and is
+highly reproducible: repeat runs with different random seeds agree to
+within $0.25\%$ at this box/height convention (this reproducibility
+degrades at larger lateral box size; Appendix~\ref{app:boxconv}). By
+contrast, we identify a clear limit to what is predictable: a
+corotating-frame oracle test shows that the exact position of an individual
+column carries no signal that generalizes across different random
+realizations of the same growth conditions -- a model given only spatial
+coordinates as input cannot recover it -- and we report this as a
+deliberate, central finding rather than a shortfall to be optimized away.
+What is predictable and reproducible is a statistical descriptor of the
+film's internal structure, the two-point pair correlation $h_g(r;\dang)$,
+which varies smoothly with $\dang$. A compact neural emulator
+(\textsc{CorrNIF}) reproduces angles held out of training with
+$R^2=0.992$, and a genuinely unseen prospective angle ($\dang=72^{\circ}$,
+later confirmed by a dedicated simulation) with $R^2=0.9907$ -- but neither
+result is more accurate than simple linear or PCHIP (standard curve-fitting)
+interpolation on the same held-out angles ($R^2=0.9909$), so predictive
+accuracy alone is not an advantage over much simpler methods.
+\textsc{CorrNIF}'s one demonstrated practical advantage is different:
+gradient descent through the frozen, trained model recovers the deposition
+angle behind a held-out target curve from five different starting points to
+the same value, matching an independent grid search to within
+$0.002^{\circ}$. An illustrative optical calculation (treating the film's
+columns as aligned tungsten cylinders, via the Maxwell-Garnett
+effective-medium approximation) predicts a large difference in refractive
+index for light polarized parallel versus perpendicular to the columns
+(form birefringence $\Delta n\sim 0.3$--$0.8$), but strong absorption for
+one polarization direction and high sensitivity to exactly how the solid
+fraction is defined mean this cannot be claimed as a usable polarization-device
+design window; we report it as a loss-aware screening illustration, not a
+device prediction. Together, these results define a simulation-only
+workflow for ranking candidate helical GLAD geometries by their statistical
+morphology, with the limits of predictive reach established as an explicit
+finding rather than left implicit, and with quantitative optical and
+material-specific calibration left to dedicated experiments.
 \end{abstract}
 
 \maketitle
@@ -1578,12 +1594,17 @@ at a known angle.
 
 We do \emph{not} claim this recovers the true angle exactly: the recovered
 $71.183^{\circ}$ differs from the actual deposition angle,
-$\dang=72^{\circ}$, by $0.82^{\circ}$. This residual is consistent with,
-not larger than, the interpolation error already reported for this same
-target curve in Section~\ref{ssec:nif_prospective}
-($R^2=0.9907$, RMSE~$=0.0186$)---the inverse recovery is limited by the same
-finite-capacity, finite-training-grid interpolation error as the forward
-prediction, not by a failure of the optimisation procedure itself, which is
+$\dang=72^{\circ}$, by $0.82^{\circ}$. We do not claim this residual is
+formally comparable in magnitude to the curve-fit error reported for this
+same target curve in Section~\ref{ssec:nif_prospective}
+($R^2=0.9907$, RMSE~$=0.0186$): an angular residual (degrees) and a
+curve-shape RMSE (dimensionless $h_g$ units) are different quantities, and
+no error-propagation relating them is derived here. Qualitatively, the
+$0.82^{\circ}$ residual is small relative to the $5^{\circ}$ spacing
+between the nearest training angles ($70^{\circ}$, $75^{\circ}$), consistent
+with the inverse recovery being limited by the same finite-capacity,
+finite-training-grid interpolation imperfection as the forward prediction,
+rather than by a failure of the optimisation procedure itself, which is
 independently validated by the exact grid-search agreement above. The
 demonstration therefore substantiates the differentiability advantage as
 claimed: a genuine gradient-based query is usable in practice, at a
@@ -1778,6 +1799,20 @@ These two studies share authorship and an experimental lineage, so they are
 corroborating rather than fully independent; they indicate that GLAD optical
 anisotropy in this oxide system is largest near $60^{\circ}$--$70^{\circ}$ and
 decays at higher obliquity, consistent with the present trend.
+A separate deposition-angle series from an earlier study by an overlapping
+author group (fixed-angle, stationary-substrate GLAD, $\gamma = 0^{\circ}$--$80^{\circ}$
+in five steps) reports the complementary observable of Tauc optical band
+gap for the Cu$_2$O phase within an as-deposited Cu$\to$Cu$_2$O/CuO$_x$
+composite film, rising from $E_g = 2.16\,\mathrm{eV}$ at $\gamma = 0^{\circ}$
+to $E_g = 2.68\,\mathrm{eV}$ at $\gamma = 80^{\circ}$ \citep{tounsi2015}. This
+is a distinct optical quantity from the birefringence discussed above (band
+gap rather than form-anisotropy), so it does not directly corroborate the
+$\Delta n$ trend, but it independently confirms that this oxide system's
+optical response is strongly and monotonically angle-dependent across a wide
+obliquity range, consistent with the picture that GLAD-driven morphological
+anisotropy (column tilt and packing density) has a first-order effect on the
+optical properties of Cu-oxide films regardless of which specific optical
+observable is measured.
 The much larger absolute magnitude obtained here for tungsten
 ($n = 3.5$, $k = 2.8$) reflects its far stronger dielectric contrast, but in
 view of the absorption it is not a directly realisable optical advantage and
@@ -2102,6 +2137,8 @@ discrepancy), the \textsc{CorrNIF} statistical-morphology emulator, and the
 illustrative effective-medium step form a simulation-only workflow for
 ranking helical GLAD geometries by ensemble morphology; quantitative optical
 design and material calibration are left to dedicated experiments.
+The magnitude of the surface-diffusion omission can be given an independent, quantitative anchor from an unrelated GLAD system: for sputter-deposited ZnO nanorods, \citet{laforge2014} reports an adatom surface-diffusion hop time of order $\tau_h \sim 2\times10^{3}$~s and a monolayer-burial time $\tau_m \sim 20$--$350$~s under comparable growth conditions---both far shorter than the deposition timescale of a single monolayer in a typical GLAD run, confirming that diffusive adatom motion is not a negligible process on the timescale of column formation even though it is absent from the present ballistic model by construction. This is offered as an order-of-magnitude cross-material check on the size of the omitted physics, not a claim that these particular timescales transfer quantitatively to Cu.
+
 The principal identified limitations---absence of surface diffusion, restriction
 to Cu hard-sphere geometry, and the single helical pitch studied---define
 clear targets for future extension: addition of a phenomenological diffusion
