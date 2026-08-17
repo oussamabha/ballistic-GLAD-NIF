@@ -178,7 +178,36 @@ model, each diagnosing why the previous one fell short. First, a variant
 conditioned on a reference simulation via feature-wise linear modulation
 (\film{}) successfully reconstructs the full 3D density field, with mean
 spatial Pearson correlation $r=0.984$ -- but only for deposition angles
-within the $75$--$87^{\circ}$ range it was trained on, not beyond it.
+within the $75$--$87^{\circ}$ range it was trained on, not beyond it. This
+figure is also in-sample: evaluated at three angles inside that same
+range but withheld from training ($78.75^{\circ}$, $83.5^{\circ}$,
+$84.25^{\circ}$), the identical checkpoint collapses to $r \approx 0.003$
+mean, showing the network reproduces the seven trained density fields
+individually rather than learning a function that interpolates smoothly
+between them, despite an explicit angle-smoothness regulariser applied
+during training. An independent replication of the identical recipe on a
+disjoint dataset spanning the full $60$--$89^{\circ}$ deposition-angle
+range (7 trained / 2 held-out angles) confirms this is not an artefact of
+the narrow trained window: in-sample correlation reaches $r=0.954$ but
+collapses to $r=0.088$ at the two held-out angles. Two follow-up tests
+narrow down the cause: replacing the \film{} conditioning mechanism
+with direct Fourier-encoded concatenation of $\ang$, keeping the same
+full-field target, does not help ($r=0.101$ held-out, statistically
+indistinguishable from \film{}'s $r=0.088$), while keeping \film{} but
+reformulating the \emph{target} as a compact pair-correlation
+descriptor $h_g(r;\ang)$ -- the same descriptor family already
+validated for P1 -- generalises well on this same wide angular range
+(mean $R^2=0.962$, Pearson $r=0.997$ across two held-out angles),
+though not clearly better than simple interpolation on the same
+points. Together these indicate the failure lives in the
+high-dimensional field target, not the conditioning architecture. The
+same reframing does not help uniformly: a scalar porosity($\ang$)
+target is better served by classical linear interpolation than by any
+network at this data volume, and a depth-density-profile descriptor's
+generalisation remains an open question after an unrelated,
+newly-identified random-seed confound in the shared training code was
+found to swing its headline result between clearly negative and
+clearly positive across reruns.
 Second, when instead trained to predict binary voxel occupancy (whether a
 given point is solid or empty) using softened training labels, the same
 architecture collapses to the trivial prediction (always guessing the same
@@ -556,7 +585,7 @@ binary boundary signal in the soft labels.
 \section{Results}
 \label{sec:results}
 
-\subsection{Experiment 1 — full-field reconstruction within its trained angular window: strong positive result}
+\subsection{Experiment 1 — full-field reconstruction at trained angles: strong positive result, but no angular interpolation}
 \label{ssec:res1}
 
 This subsection addresses Objective~1 (scalar/continuous-field
@@ -612,6 +641,65 @@ ground-truth fields at $\ang=80^{\circ}$ shows the same fine tilted-column
 texture reproduced by the network, with a residual that is visually flat
 noise rather than a structured bias.
 
+\subsubsection{Held-out angular interpolation: confirmed negative result}
+\label{sssec:res1_heldout}
+
+All results reported above are evaluated at the same 7 angles used for
+training, i.e.\ in-sample. Three additional density fields were
+simulated at angles chosen strictly \emph{inside} the trained
+$[75^{\circ},87^{\circ}]$ window but never shown to the network during
+training -- $\ang=78.75^{\circ}$ (between the $77.5^{\circ}$ and
+$80^{\circ}$ training points), $83.5^{\circ}$, and $84.25^{\circ}$
+(both between the $82.5^{\circ}$ and $85^{\circ}$ training points) --
+to test whether the \film{}-conditioned network has learned a
+genuinely angle-continuous density function or has instead memorised
+seven discrete fields. We ran the saved best checkpoint
+(epoch 1000, the same checkpoint behind Table~\ref{tab:nifv5_peralpha})
+forward at these three interpolated angles, using the identical
+coordinate normalisation, \film{} conditioning, and spatial Pearson
+metric as the in-sample evaluation, so the two numbers are directly
+comparable.
+Table~\ref{tab:nifv5_heldout} reports the result: mean spatial Pearson
+correlation collapses from $r=0.984$ in-sample to $r=0.003$ at the
+three held-out angles -- consistent with zero correlation at every
+individual angle (all three individual $|r| < 0.007$), i.e.\ no usable
+spatial correlation at all -- even though the network's predicted mean
+density stays close to the ground-truth mean density at each angle
+(relative error $0.5$--$3.6\%$). This combination is diagnostic: the
+network gets the bulk (zeroth-moment) density right but has no access
+to the correct spatial (pointwise) structure at an untrained angle,
+which rules out a merely quantitative degradation and instead
+indicates that the seven trained fields are each represented
+individually rather than as samples of one smooth underlying function
+of $\ang$, despite the smoothness penalty (Section~\ref{ssec:arch})
+applied during training. We report this result exactly as obtained,
+with no retraining or checkpoint selection after the fact.
+
+\begin{table}[htbp]
+  \centering
+  \caption{%
+    Held-out angular-interpolation test for \nif{}~v5 (identical
+    checkpoint as Table~\ref{tab:nifv5_peralpha}, epoch 1000, no
+    retraining). The 3 angles were simulated but withheld from
+    training; each lies strictly inside the trained
+    $[75^{\circ},87^{\circ}]$ window. $r$: spatial Pearson correlation
+    between predicted and ground-truth 3D density fields. Mean error:
+    mean absolute relative density error (\%).
+  }
+  \label{tab:nifv5_heldout}
+  \begin{tabular}{rcc}
+    \toprule
+    $\ang$ (°) & Pearson $r$ & Mean error (\%) \\
+    \midrule
+    78.75 & 0.0067 & 0.519 \\
+    83.5  & $-0.0045$ & 2.231 \\
+    84.25 & 0.0063 & 3.619 \\
+    \midrule
+    Mean & 0.0028 & 2.123 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{nifv5_pred_vs_truth}
@@ -630,6 +718,280 @@ noise rather than a structured bias.
   }
   \label{fig:nifv5_slice}
 \end{figure}
+
+\subsubsection{Wide-range replication (60--89\textdegree{}): held-out interpolation failure confirmed on an independent dataset}
+\label{sssec:res1_widerange}
+
+The held-out interpolation collapse above was measured on the same
+narrow $[75^{\circ},87^{\circ}]$ window, $700\,$nm-height,
+static-rotation dataset used to train \nif{}~v5, leaving open whether
+the failure is specific to that narrow window or a more general
+property of the \film{}-conditioned recipe. We re-ran the identical
+architecture (multi-scale Fourier features, \film{} $\alpha$-conditioning,
+MSE loss, angular-smoothness penalty; Section~\ref{ssec:arch}) on an
+independent, already-simulated dataset spanning the \emph{full}
+physical range used elsewhere in this project: box $=150\,$nm,
+target height $=300\,$nm, pitch $=150\,$nm, helical rotation, seed~000,
+at $\ang \in \{60,65,70,72,75,80,85,87,89\}^{\circ}$. Train/held-out
+angles were pre-registered before any training or evaluation:
+\textbf{train} $\ang \in \{60,65,70,75,80,85,89\}^{\circ}$ (7 angles,
+spanning the full range), \textbf{held out}
+$\ang \in \{72,87\}^{\circ}$ (2 angles, interior to the trained range,
+never loaded until the pre-declared epoch budget was reached).
+
+Training ran for 60 epochs (cosine-annealed learning rate,
+$5\times10^{-4}\to10^{-5}$) rather than the 400-epoch budget
+originally planned for this dataset: this environment's GPU idles at
+$\sim\!72$--$78^{\circ}$C, and sustained training load reaches the
+project's $85^{\circ}$C thermal-safety threshold within about a
+minute, so training was run duty-cycled (paused above $85^{\circ}$C,
+resumed below $80^{\circ}$C, hard-killed above $90^{\circ}$C as a
+safety net -- never triggered), which caps realistic throughput to
+roughly one epoch per 2.4 minutes on this hardware. The epoch budget
+was reduced accordingly and is reported here as a compute-constrained
+deviation from the original plan, not a result-driven one: it was
+fixed before the held-out alphas were touched.
+
+At this budget the in-sample fit is strong and comparable to
+\nif{}~v5's: mean spatial Pearson $r = 0.954$ across the 7 trained
+angles (individual range $0.896$--$0.983$; degrading somewhat at the
+$89^{\circ}$ edge of the range, mean density error $2.5\%$ overall).
+The held-out result, however, reproduces the same qualitative failure
+as Table~\ref{tab:nifv5_heldout}: mean spatial Pearson collapses to
+$r = 0.088$ at the two held-out angles
+(Table~\ref{tab:widerange_heldout}), with mean relative density error
+of $38.5\%$ -- an order of magnitude worse than the in-sample error.
+By the same diagnostic standard used in
+Section~\ref{sssec:res1_heldout} ($r \lesssim 0.1$ indicating no
+usable spatial correlation), this is a second, independent
+confirmation of the same negative result: a strong in-sample fit
+($r>0.95$) coexisting with a near-total loss of spatial correlation
+at nearby, untrained angles. The failure is not an artefact of the
+narrow $[75^{\circ},87^{\circ}]$ window, the $700\,$nm/static-rotation
+convention, or the specific 7 trained angles used in \nif{}~v5: it
+reproduces on a different box size, height, rotation convention, and
+angular range, using an entirely disjoint train/held-out split. We
+report this exactly as obtained, with no retraining or checkpoint
+selection after the fact.
+
+\begin{table}[htbp]
+  \centering
+  \caption{%
+    Held-out angular-interpolation test for the wide-range replication
+    (best checkpoint, epoch 60, no retraining), on the independent
+    box150\,nm/height300\,nm/pitch150\,nm helical dataset. The 2 angles
+    were simulated but withheld from training. $r$: spatial Pearson
+    correlation between predicted and ground-truth 3D density fields.
+    Mean error: mean absolute relative density error (\%).
+  }
+  \label{tab:widerange_heldout}
+  \begin{tabular}{rcc}
+    \toprule
+    $\ang$ (°) & Pearson $r$ & Mean error (\%) \\
+    \midrule
+    72.0 & 0.1699 & 29.85 \\
+    87.0 & 0.0063 & 47.22 \\
+    \midrule
+    Mean & 0.0881 & 38.54 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Reformulating the prediction target: compact descriptors generalize where the full field does not}
+\label{sssec:res1_descriptors}
+
+Sections~\ref{sssec:res1_heldout}--\ref{sssec:res1_widerange} show that
+the raw 3D density field is not a learnable function of $\ang$ at
+held-out angles, regardless of dataset. Two follow-up experiments test
+whether this failure is caused by \emph{how} the model is asked to
+represent the field (its architecture), or by \emph{what} it is asked
+to represent (the full voxel field itself, as opposed to a compact
+summary of it). A third follow-up tests whether this same descriptor
+reframing helps for two further quantities of interest, with mixed
+results reported honestly below.
+
+\paragraph{Is it the target, or the conditioning mechanism?}
+The wide-range \film{}-conditioned network (Section~\ref{sssec:res1_widerange})
+was retrained with an architecturally different alpha-conditioning
+scheme, keeping the full 3D density field as the prediction target,
+the dataset, and the train/held-out split ($\ang\in\{60,65,70,75,80,85,89\}^{\circ}$
+trained, $\ang\in\{72,87\}^{\circ}$ held out) unchanged. Instead of
+\film{}'s weight modulation (a small $\alpha$-dependent network
+producing per-layer gain/bias terms, hypothesised to degenerate into a
+per-angle lookup table), $\alpha$ was Fourier-encoded with the same
+recipe used for $(x,y,z)$ and simply concatenated with the encoded
+spatial coordinates before an ordinary MLP -- removing weight
+modulation entirely. If \film{}'s conditioning mechanism were the
+cause of the held-out collapse, this substitution should measurably
+improve held-out correlation.
+
+It does not. Held-out mean Pearson correlation is
+$r=0.101$ for the concatenation variant versus $r=0.088$ for the
+\film{} baseline (Table~\ref{tab:concat_heldout}) -- both effectively
+zero and not a meaningful difference given only two held-out angles.
+At $\ang=87^{\circ}$, the harder of the two held-out angles, the
+concatenation variant is actually worse ($r=0.001$ vs.\ $0.006$) and
+its density-magnitude error is substantially worse ($83.6\%$ vs.\
+$47.2\%$); its in-sample fit is also uniformly weaker than \film{}'s
+(mean trained-angle $r=0.869$ vs.\ $0.954$). This rules out the
+conditioning \emph{mechanism} as the primary cause of the held-out
+failure: removing \film{}'s weight modulation neither fixes
+generalisation nor even matches the baseline's in-sample fit. The
+difficulty therefore appears to reside in the high-dimensional,
+spatially-detailed full-3D-field \emph{target} itself, not in how
+$\alpha$ is injected into the network -- directly motivating the
+descriptor-reframing test below.
+
+\begin{table}[htbp]
+  \centering
+  \caption{%
+    Held-out comparison of \film{} weight-modulation conditioning
+    against direct Fourier-concatenation of $\alpha$, same dataset,
+    split, and full-3D-density-field target as
+    Table~\ref{tab:widerange_heldout}. $r$: spatial Pearson
+    correlation, held-out angles only.
+  }
+  \label{tab:concat_heldout}
+  \begin{tabular}{rcc}
+    \toprule
+    $\ang$ (°) & \film{} $r$ & Concat $r$ \\
+    \midrule
+    72.0 & 0.170 & 0.200 \\
+    87.0 & 0.006 & 0.001 \\
+    \midrule
+    Mean & 0.088 & 0.101 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Compact descriptors of the same dataset.}
+A separate follow-up kept the \film{}-conditioned architecture but
+changed the prediction target: instead of the raw $(x,y,z)$-indexed
+density field, the network predicts one of three compact,
+physically-meaningful descriptors as a function of $\ang$ and a
+single 1D coordinate, computed from the identical box150\,nm/
+height300\,nm dataset and train/held-out split used in
+Section~\ref{sssec:res1_widerange}: (i) $h_g(r;\ang)$, the
+corotating-frame pair-correlation function -- the same descriptor and
+extraction pipeline P1's own \textsc{CorrNIF} network already uses
+successfully on a narrower angular window; (ii) $\rho_z(z;\ang)$, the
+mean-density depth profile; and (iii) scalar porosity$(\ang)$. All
+three are $\geq 1000\times$ more compact than the raw voxel field
+($25$, $152$, and $1$ dimensions respectively, versus $\sim 380{,}000$
+voxels).
+
+$h_g(r;\ang)$ generalises well at both genuinely held-out angles:
+mean $R^2=0.962$, mean Pearson $r=0.997$ across $\ang\in\{72,87\}^{\circ}$
+(Table~\ref{tab:descriptor_heldout}). This replicates, on the wider
+$60$--$89^{\circ}$ range and an independent dataset, the same
+qualitative result P1's \textsc{CorrNIF} already established on its
+own narrower window ($R^2=0.999$ at $\ang=72^{\circ}$): statistical
+descriptors of the density field are smooth, learnable functions of
+$\ang$ even where the exact voxel realisation, and even the full
+3D field's absolute density level, are not. This is the clearest
+positive finding of this reformulation test. It should, however, be
+read with the same caveat that already applies to P1's own result: the
+NIF's $h_g(r)$ held-out fit does not clearly outperform naive linear
+interpolation between the bracketing trained angles ($R^2=0.972$ mean)
+or nearest-neighbour lookup ($R^2=0.989$ mean) at these same two held-out
+points. The finding here is therefore best read as a confirmatory
+replication of P1's descriptor-based approach in a new, wider-range
+setting -- not as evidence that a NIF outperforms simple interpolation
+for this particular descriptor. What the result does establish is that
+$h_g(r;\ang)$, unlike the raw field, is the kind of smooth quantity for
+which \emph{any} reasonable interpolant (learned or classical) works --
+exactly the property the full 3D field lacks.
+
+\begin{table}[htbp]
+  \centering
+  \caption{%
+    Held-out generalisation of three compact descriptors of the same
+    box150\,nm/height300\,nm dataset and train/held-out split as
+    Table~\ref{tab:widerange_heldout}, predicted by a \film{}-conditioned
+    network with the descriptor's own coordinate ($r$ for $h_g$, $z$ for
+    $\rho_z$; none for scalar porosity) as input instead of $(x,y,z)$.
+    Porosity is reported as mean absolute error (a fractional occupancy,
+    not a correlation).
+  }
+  \label{tab:descriptor_heldout}
+  \begin{tabular}{lccc}
+    \toprule
+    Descriptor & $\ang=72^{\circ}$ & $\ang=87^{\circ}$ & Mean \\
+    \midrule
+    $h_g(r;\ang)$, $R^2$ & 0.933 & 0.991 & \textbf{0.962} \\
+    $h_g(r;\ang)$, Pearson $r$ & 0.999 & 0.996 & \textbf{0.997} \\
+    \addlinespace
+    $\rho_z(z;\ang)$, $R^2$ & 0.444 & $-0.964$ & $-0.260$ \\
+    $\rho_z(z;\ang)$, Pearson $r$ & 0.742 & 0.692 & 0.717 \\
+    \addlinespace
+    porosity$(\ang)$, mean abs.\ err. & 0.254 & 0.108 & \textbf{0.181} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Scalar porosity($\ang$): the descriptor reframing does not help here -- classical interpolation wins.}
+The scalar porosity$(\ang)$ NIF fails outright (mean absolute error
+$0.181$, and predicts a physically impossible value $>1$ at
+$\ang=72^{\circ}$), while simple linear interpolation between the two
+bracketing trained angles achieves mean absolute error $0.035$ and
+cubic-spline interpolation $0.040$ (a follow-up check, same
+held-out pair). With only 7 training points and a
+non-monotonic porosity($\ang$) curve, this is not evidence against the
+descriptor-reframing idea in general -- it is evidence that a learned
+network is the wrong tool for this specific quantity at this data
+volume. For scalar porosity specifically, classical interpolation is
+not merely adequate but strictly better than the learned alternative,
+and is the recommended approach for any downstream use of this
+quantity.
+
+\paragraph{Depth-density profile $\rho_z(z;\ang)$: inconclusive, not a settled negative.}
+$\rho_z(z;\ang)$ -- the descriptor most directly analogous to what
+Section~\ref{sssec:res1_widerange}'s full field was trying to predict,
+collapsed from 3D to a 1D depth profile -- shows a moderate but
+ambiguous signal in its first reported run: Pearson $r\approx 0.72$
+(the depth-profile \emph{shape} correlates with the true profile) but
+poor-to-negative $R^2$ ($-0.26$ mean; Table~\ref{tab:descriptor_heldout}),
+i.e.\ the shape trend is captured but the absolute level is not. Two
+follow-up fix attempts -- decomposing the target into a
+classically-interpolated scale factor times a NIF-learned normalised
+shape, and post-hoc rescaling the original network's output to match
+the classical scale estimate -- both made the held-out $R^2$ \emph{worse},
+not better, ruling out a simple normalisation bug as the explanation.
+
+While investigating these fixes, a methodological gap was found:
+retraining the identical $\rho_z(z;\ang)$ recipe (same architecture,
+same data, same explicit \texttt{seed} argument) with only the
+\emph{incidental} global PyTorch random-number-generator state varied
+before training -- because the shared \textsc{CorrNIF} training helper
+initialises its linear-layer weights from PyTorch's global RNG, while
+the \texttt{seed} argument only seeds a local generator used for the
+Fourier-feature buffer -- gives held-out mean $R^2$ of $0.231$,
+$-0.072$, and $0.307$ across three otherwise-identical reruns, i.e.\
+the sign of the headline result swings from clearly negative to
+clearly positive depending on RNG state that the training script's own
+seed parameter does not control. The originally reported $R^2=-0.26$
+sits within this observed spread, on its pessimistic end, and is not
+distinguishable from noise given this variance. We therefore report
+$\rho_z(z;\ang)$'s generalisation as an \textbf{open question}, not as
+a settled negative or positive result: a stable answer requires fixing
+the RNG-seeding gap (seeding all weight initialisation from the same
+controlled generator) and averaging held-out $R^2$ over several seeds,
+which was not done here. Beyond the substantive question of whether
+this specific descriptor generalises, the gap itself is a useful
+methodological lesson for this class of model: a script's own
+\texttt{seed} argument does not guarantee reproducibility unless every
+source of randomness it touches, including framework-level global
+state, is accounted for.
+
+A search for additional, convention-compatible $\ang$ values that
+could densify the $h_g(r)$ training set beyond the existing 9-angle
+grid found none: every helical, box150\,nm/height300\,nm/pitch150\,nm,
+physically-radius-calibrated simulation in the project already lies on
+the same $\{60,65,70,72,75,80,85,87,89\}^{\circ}$ grid used above. Two
+additional angles exist elsewhere in the project ($40^{\circ}$,
+$50^{\circ}$) but use an incompatible, smaller box size and predate
+the physical-radius calibration, so mixing them in would introduce a
+box-size/radius confound; they were not used.
 
 % ---------------------------------------------------------------
 \subsection{Experiment 2 — soft-label BCE: confirmed negative result}
@@ -955,6 +1317,39 @@ addressed by Experiments~2--3: it reconstructs a full 3D density
 field, but always within the same 7 trained angles, so it says
 nothing about a network's ability to generalise \emph{across} the
 full deposition-angle range or to a disjoint angle set.
+
+The held-out interpolation test (Section~\ref{sssec:res1_heldout},
+Table~\ref{tab:nifv5_heldout}) sharpens this limit further: it is not
+only that the model is untested outside $[75^{\circ},87^{\circ}]$, but
+that it does not interpolate \emph{inside} that window either. The
+\film{} generator (Section~\ref{ssec:arch}) takes the deposition angle
+as a continuous scalar input and, in principle, nothing prevents it
+from producing a smoothly-varying gamma/beta modulation for an
+untrained angle between two trained ones. In practice, at $r\approx0$
+for all three interpolated angles, the network behaves as if it has
+allocated a separate solution to each of the seven trained angles
+rather than fitting one continuous function of $\ang$ -- effectively a
+lookup table implemented in weight space, not a generalisable field.
+This is not an artefact of the narrow $[75^{\circ},87^{\circ}]$ window:
+Section~\ref{sssec:res1_widerange} reruns the identical recipe on an
+independent dataset spanning the full $[60^{\circ},89^{\circ}]$ range
+and finds the same failure mode ($r=0.088$ mean at two held-out
+angles, versus $r=0.954$ in-sample), so the lookup-table behaviour
+appears to be a property of this \film{}-conditioning recipe itself
+rather than of the specific narrow-window dataset it was first
+observed on.
+The explicit angle-smoothness penalty applied during training
+(finite-difference regularisation of the output at $\ang \pm 0.25^{\circ}$,
+Section~\ref{ssec:arch}) was intended to discourage exactly this
+failure mode and evidently did not succeed at the length scale
+needed here (training angles are spaced $1.25$--$2.5^{\circ}$ apart,
+an order of magnitude coarser than the $0.25^{\circ}$ smoothness
+window). The practical consequence for Objective~1 is that \nif{}~v5
+should be read strictly as a per-angle field cache with a convenient
+shared architecture, not as an angle-continuous surrogate: it is
+useful for fast recall at the 7 simulated angles but cannot be relied
+on to interpolate film structure at an arbitrary intermediate angle
+without a simulation at that angle to train (or validate) against.
 
 \subsection{The soft-label equilibrium trap}
 \label{ssec:disc_softtrap}
@@ -1517,7 +1912,40 @@ Section~\ref{sec:intro}, in the same order.
     establish, and this experiment does not test, generalisation to
     the wider $\{60,\ldots,89\}^{\circ}$ range used in Experiments~2--3,
     nor is it the same network as the shared architecture used
-    there.
+    there. A held-out test at three angles inside the trained window
+    but withheld from training ($78.75^{\circ}$, $83.5^{\circ}$,
+    $84.25^{\circ}$; Section~\ref{sssec:res1_heldout}) finds this
+    correlation collapses to $r = 0.003$ mean, showing the $r=0.984$
+    figure reflects per-angle recall rather than a genuinely
+    angle-continuous learned field -- the model does not interpolate
+    even within its own trained window. An independent replication
+    of the same recipe on the full $[60^{\circ},89^{\circ}]$ range
+    (Section~\ref{sssec:res1_widerange}, disjoint dataset, 7 trained /
+    2 held-out angles) confirms this is not specific to the narrow
+    window: in-sample $r = 0.954$ collapses to $r = 0.088$ at the two
+    held-out angles.
+    Two follow-up tests (Section~\ref{sssec:res1_descriptors}) localise
+    this failure to the \emph{target}, not the conditioning
+    architecture. Replacing \film{} with direct Fourier-concatenation
+    of $\ang$, same full-field target and split, does not fix
+    generalisation ($r=0.101$ held-out, vs.\ \film{}'s $r=0.088$ --
+    both effectively zero, not a meaningful difference). Reformulating
+    the target instead, from the raw field to the compact
+    pair-correlation descriptor $h_g(r;\ang)$ already validated by P1,
+    does generalise on this wide range (mean $R^2=0.962$, Pearson
+    $r=0.997$ across two held-out angles) -- though, matching P1's own
+    caveat, not clearly better than naive interpolation at these same
+    points. The same reframing is not a universal fix: scalar
+    porosity($\ang$) is better served by classical linear interpolation
+    (mean abs.\ error $0.035$) than by any network at this data volume
+    (NIF: $0.181$), and the depth-density-profile descriptor
+    $\rho_z(z;\ang)$'s generalisation remains an open question -- its
+    original $R^2=-0.26$ was found to sit within an observed
+    $-0.07$ to $0.31$ spread across reruns differing only in
+    incidental global-RNG state left unseeded by the shared training
+    code's own \texttt{seed} argument, so no reliable conclusion can
+    currently be drawn about this specific descriptor without a fix
+    to that seeding gap and multi-seed averaging.
 
   \item \textbf{Objective 2 (voxel-level occupancy) — answered:
     soft-label spatial occupancy is negative.}
