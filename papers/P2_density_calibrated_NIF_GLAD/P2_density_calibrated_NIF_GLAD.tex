@@ -7,7 +7,11 @@
 %          (IF ~3–4, Q1 materials/surfaces)
 %
 %  Key results:
-%    POSITIVE — NIF v5 scalar porosity: Pearson = 0.984
+%    POSITIVE — NIF v5 scalar porosity: Pearson = 0.984 (in-sample, 7 trained angles)
+%    NEGATIVE — same checkpoint, 3 interpolated held-out angles (78.75/83.5/84.25 deg,
+%               inside the trained window, never used in training): Pearson r = 0.003
+%               mean (individual r: 0.0067, -0.0045, 0.0063) -- essentially zero
+%               spatial correlation, added 2026-08-17
 %    NEGATIVE (soft label) — spatial occupancy IoU_trivial for all α
 %    DIAGNOSIS — Gaussian-smeared labels eliminate binary boundaries
 %    POSITIVE (hard label) — [INSERT after training] IoU > trivial threshold
@@ -211,7 +215,14 @@ model, each diagnosing why the previous one fell short. First, a variant
 conditioned on a reference simulation via feature-wise linear modulation
 (\film{}) successfully reconstructs the full 3D density field, with mean
 spatial Pearson correlation $r=0.984$ -- but only for deposition angles
-within the $75$--$87^{\circ}$ range it was trained on, not beyond it.
+within the $75$--$87^{\circ}$ range it was trained on, not beyond it. This
+figure is also in-sample: evaluated at three angles inside that same
+range but withheld from training ($78.75^{\circ}$, $83.5^{\circ}$,
+$84.25^{\circ}$), the identical checkpoint collapses to $r \approx 0.003$
+mean, showing the network reproduces the seven trained density fields
+individually rather than learning a function that interpolates smoothly
+between them, despite an explicit angle-smoothness regulariser applied
+during training.
 Second, when instead trained to predict binary voxel occupancy (whether a
 given point is solid or empty) using softened training labels, the same
 architecture collapses to the trivial prediction (always guessing the same
@@ -587,7 +598,7 @@ binary boundary signal in the soft labels.
 \section{Results}
 \label{sec:results}
 
-\subsection{Experiment 1 — full-field reconstruction within its trained angular window: strong positive result}
+\subsection{Experiment 1 — full-field reconstruction at trained angles: strong positive result, but no angular interpolation}
 \label{ssec:res1}
 
 This subsection addresses Objective~1 (scalar/continuous-field
@@ -642,6 +653,66 @@ than only numerical: a vertical slice through the predicted and
 ground-truth fields at $\ang=80^{\circ}$ shows the same fine tilted-column
 texture reproduced by the network, with a residual that is visually flat
 noise rather than a structured bias.
+
+\subsubsection{Held-out angular interpolation: confirmed negative result}
+\label{sssec:res1_heldout}
+
+All results reported above are evaluated at the same 7 angles used for
+training, i.e.\ in-sample. Three additional density fields were
+simulated at angles chosen strictly \emph{inside} the trained
+$[75^{\circ},87^{\circ}]$ window but never shown to the network during
+training -- $\ang=78.75^{\circ}$ (between the $77.5^{\circ}$ and
+$80^{\circ}$ training points), $83.5^{\circ}$, and $84.25^{\circ}$
+(both between the $82.5^{\circ}$ and $85^{\circ}$ training points) --
+to test whether the \film{}-conditioned network has learned a
+genuinely angle-continuous density function or has instead memorised
+seven discrete fields. We ran the saved best checkpoint
+(epoch 1000, the same checkpoint behind Table~\ref{tab:nifv5_peralpha})
+forward at these three interpolated angles, using the identical
+coordinate normalisation, \film{} conditioning, and spatial Pearson
+metric as the in-sample evaluation, so the two numbers are directly
+comparable.
+Table~\ref{tab:nifv5_heldout} reports the result: mean spatial Pearson
+correlation collapses from $r=0.984$ in-sample to $r=0.003$ at the
+three held-out angles -- consistent with zero correlation at every
+individual angle (all three individual $|r| < 0.007$), i.e.\ no usable
+spatial correlation at all -- even though the
+network's predicted mean density stays close to the ground-truth mean
+density at each angle (relative error $0.5$--$3.6\%$). This
+combination is diagnostic: the network gets the bulk (zeroth-moment)
+density right but has no access to the correct spatial (pointwise)
+structure at an untrained angle, which rules out a merely quantitative
+degradation and instead indicates that the seven trained fields are
+each represented individually rather than as samples of one smooth
+underlying function of $\ang$, despite the smoothness penalty
+(Section~\ref{ssec:arch}) applied during training. We report this
+result exactly as obtained, with no retraining or checkpoint
+selection after the fact.
+
+\begin{table}[htbp]
+  \centering
+  \caption{%
+    Held-out angular-interpolation test for \nif{}~v5 (identical
+    checkpoint as Table~\ref{tab:nifv5_peralpha}, epoch 1000, no
+    retraining). The 3 angles were simulated but withheld from
+    training; each lies strictly inside the trained
+    $[75^{\circ},87^{\circ}]$ window. $r$: spatial Pearson correlation
+    between predicted and ground-truth 3D density fields. Mean error:
+    mean absolute relative density error (\%).
+  }
+  \label{tab:nifv5_heldout}
+  \begin{tabular}{rcc}
+    \toprule
+    $\ang$ (°) & Pearson $r$ & Mean error (\%) \\
+    \midrule
+    78.75 & 0.0067 & 0.519 \\
+    83.5  & $-0.0045$ & 2.231 \\
+    84.25 & 0.0063 & 3.619 \\
+    \midrule
+    Mean & 0.0028 & 2.123 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \begin{figure}[htbp]
   \centering
@@ -986,6 +1057,31 @@ addressed by Experiments~2--3: it reconstructs a full 3D density
 field, but always within the same 7 trained angles, so it says
 nothing about a network's ability to generalise \emph{across} the
 full deposition-angle range or to a disjoint angle set.
+
+The held-out interpolation test (Section~\ref{sssec:res1_heldout},
+Table~\ref{tab:nifv5_heldout}) sharpens this limit further: it is not
+only that the model is untested outside $[75^{\circ},87^{\circ}]$, but
+that it does not interpolate \emph{inside} that window either. The
+\film{} generator (Section~\ref{ssec:arch}) takes the deposition angle
+as a continuous scalar input and, in principle, nothing prevents it
+from producing a smoothly-varying gamma/beta modulation for an
+untrained angle between two trained ones. In practice, at $r\approx0$
+for all three interpolated angles, the network behaves as if it has
+allocated a separate solution to each of the seven trained angles
+rather than fitting one continuous function of $\ang$ -- effectively a
+lookup table implemented in weight space, not a generalisable field.
+The explicit angle-smoothness penalty applied during training
+(finite-difference regularisation of the output at $\ang \pm 0.25^{\circ}$,
+Section~\ref{ssec:arch}) was intended to discourage exactly this
+failure mode and evidently did not succeed at the length scale
+needed here (training angles are spaced $1.25$--$2.5^{\circ}$ apart,
+an order of magnitude coarser than the $0.25^{\circ}$ smoothness
+window). The practical consequence for Objective~1 is that \nif{}~v5
+should be read strictly as a per-angle field cache with a convenient
+shared architecture, not as an angle-continuous surrogate: it is
+useful for fast recall at the 7 simulated angles but cannot be relied
+on to interpolate film structure at an arbitrary intermediate angle
+without a simulation at that angle to train (or validate) against.
 
 \subsection{The soft-label equilibrium trap}
 \label{ssec:disc_softtrap}
@@ -1548,7 +1644,13 @@ Section~\ref{sec:intro}, in the same order.
     establish, and this experiment does not test, generalisation to
     the wider $\{60,\ldots,89\}^{\circ}$ range used in Experiments~2--3,
     nor is it the same network as the shared architecture used
-    there.
+    there. A held-out test at three angles inside the trained window
+    but withheld from training ($78.75^{\circ}$, $83.5^{\circ}$,
+    $84.25^{\circ}$; Section~\ref{sssec:res1_heldout}) finds this
+    correlation collapses to $r = 0.003$ mean, showing the $r=0.984$
+    figure reflects per-angle recall rather than a genuinely
+    angle-continuous learned field -- the model does not interpolate
+    even within its own trained window.
 
   \item \textbf{Objective 2 (voxel-level occupancy) — answered:
     soft-label spatial occupancy is negative.}
