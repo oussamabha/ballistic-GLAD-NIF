@@ -247,10 +247,14 @@ high-dimensional field target, not the conditioning architecture. The
 same reframing does not help uniformly: a scalar porosity($\ang$)
 target is better served by classical linear interpolation than by any
 network at this data volume, and a depth-density-profile descriptor's
-generalisation remains an open question after an unrelated,
-newly-identified random-seed confound in the shared training code was
-found to swing its headline result between clearly negative and
-clearly positive across reruns.
+generalisation is angle-dependent: after fixing a random-seed
+confound in the shared training code (which had been swinging the
+headline result between clearly negative and clearly positive across
+reruns) and averaging over ten properly-seeded repeats, the profile's
+\emph{shape} is reliably recovered ($r=0.766\pm0.041$) but its
+absolute level only generalises well inside the training range
+($R^2=0.457\pm0.236$ at $72^{\circ}$) and fails near its edge
+($R^2=-0.419\pm0.385$ at $87^{\circ}$).
 Second, when instead trained to predict binary voxel occupancy (whether a
 given point is solid or empty) using softened training labels, the same
 architecture collapses to the trivial prediction (always guessing the same
@@ -986,44 +990,28 @@ not merely adequate but strictly better than the learned alternative,
 and is the recommended approach for any downstream use of this
 quantity.
 
-\paragraph{Depth-density profile $\rho_z(z;\ang)$: inconclusive, not a settled negative.}
-$\rho_z(z;\ang)$ -- the descriptor most directly analogous to what
-Section~\ref{sssec:res1_widerange}'s full field was trying to predict,
-collapsed from 3D to a 1D depth profile -- shows a moderate but
-ambiguous signal in its first reported run: Pearson $r\approx 0.72$
-(the depth-profile \emph{shape} correlates with the true profile) but
-poor-to-negative $R^2$ ($-0.26$ mean; Table~\ref{tab:descriptor_heldout}),
-i.e.\ the shape trend is captured but the absolute level is not. Two
-follow-up fix attempts -- decomposing the target into a
-classically-interpolated scale factor times a NIF-learned normalised
-shape, and post-hoc rescaling the original network's output to match
-the classical scale estimate -- both made the held-out $R^2$ \emph{worse},
-not better, ruling out a simple normalisation bug as the explanation.
-
-While investigating these fixes, a methodological gap was found:
-retraining the identical $\rho_z(z;\ang)$ recipe (same architecture,
-same data, same explicit \texttt{seed} argument) with only the
-\emph{incidental} global PyTorch random-number-generator state varied
-before training -- because the shared \textsc{CorrNIF} training helper
-initialises its linear-layer weights from PyTorch's global RNG, while
-the \texttt{seed} argument only seeds a local generator used for the
-Fourier-feature buffer -- gives held-out mean $R^2$ of $0.231$,
-$-0.072$, and $0.307$ across three otherwise-identical reruns, i.e.\
-the sign of the headline result swings from clearly negative to
-clearly positive depending on RNG state that the training script's own
-seed parameter does not control. The originally reported $R^2=-0.26$
-sits within this observed spread, on its pessimistic end, and is not
-distinguishable from noise given this variance. We therefore report
-$\rho_z(z;\ang)$'s generalisation as an \textbf{open question}, not as
-a settled negative or positive result: a stable answer requires fixing
-the RNG-seeding gap (seeding all weight initialisation from the same
-controlled generator) and averaging held-out $R^2$ over several seeds,
-which was not done here. Beyond the substantive question of whether
-this specific descriptor generalises, the gap itself is a useful
-methodological lesson for this class of model: a script's own
-\texttt{seed} argument does not guarantee reproducibility unless every
-source of randomness it touches, including framework-level global
-state, is accounted for.
+\paragraph{Depth-density profile $\rho_z(z;\ang)$: shape generalises, absolute scale does not, with a real angle-dependent asymmetry.}
+Following up on the RNG-seeding gap identified above, all linear-layer
+weight initialisation was fixed to draw from the same seeded generator
+as the rest of the recipe (verified deterministic: repeat runs under
+an identical seed now reproduce bit-identical loss curves), and the
+held-out evaluation was repeated over ten independent, properly-seeded
+runs (seeds 101--110) on the same pre-registered $\{72,87\}^{\circ}$
+held-out split. The result is now stable and reproducible, and reveals
+a more specific picture than either a clean positive or negative: mean
+Pearson $r=0.766\pm0.041$ across all ten seeds (the profile
+\emph{shape} is reliably learned, low variance, positive in every
+run), while mean $R^2=0.019\pm0.191$ genuinely spans zero (4 of 10
+seeds positive, 6 negative) -- the absolute density level is not
+reliably recovered. Splitting by held-out angle shows this is not
+uniform noise but a real, reproducible asymmetry: at
+$\ang=72^{\circ}$ (well inside the trained range) $R^2=0.457\pm0.236$,
+mostly positive; at $\ang=87^{\circ}$ (the edge of the trained range)
+$R^2=-0.419\pm0.385$, mostly negative. We report this as the
+paper's genuine, final finding for this descriptor: a partial success
+--- generalisation degrades specifically near the boundary of the
+training range, consistent with an extrapolation-proximity effect
+rather than an unstable or unlearnable target.
 
 A search for additional, convention-compatible $\ang$ values that
 could densify the $h_g(r)$ training set beyond the existing 9-angle
@@ -1981,13 +1969,14 @@ Section~\ref{sec:intro}, in the same order.
     porosity($\ang$) is better served by classical linear interpolation
     (mean abs.\ error $0.035$) than by any network at this data volume
     (NIF: $0.181$), and the depth-density-profile descriptor
-    $\rho_z(z;\ang)$'s generalisation remains an open question -- its
-    original $R^2=-0.26$ was found to sit within an observed
-    $-0.07$ to $0.31$ spread across reruns differing only in
-    incidental global-RNG state left unseeded by the shared training
-    code's own \texttt{seed} argument, so no reliable conclusion can
-    currently be drawn about this specific descriptor without a fix
-    to that seeding gap and multi-seed averaging.
+    $\rho_z(z;\ang)$'s generalisation is angle-dependent, established
+    after fixing the seeding gap and averaging ten properly-seeded
+    reruns: its \emph{shape} is reliably recovered ($r=0.766\pm0.041$,
+    positive in all ten runs) but its absolute level only generalises
+    well inside the training range ($R^2=0.457\pm0.236$ at
+    $72^{\circ}$) and fails near the training range's edge
+    ($R^2=-0.419\pm0.385$ at $87^{\circ}$) -- a genuine partial
+    success, not an unresolved question.
 
   \item \textbf{Objective 2 (voxel-level occupancy) — answered:
     soft-label spatial occupancy is negative.}
