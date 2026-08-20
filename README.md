@@ -1,24 +1,27 @@
 # Ballistic Helical GLAD: Statistical Morphology, Neural Implicit Fields, and Their Predictive Limits
 
-This repository accompanies two companion manuscripts studying **glancing-angle deposition
+This repository accompanies three companion manuscripts studying **glancing-angle deposition
 (GLAD)** — a thin-film growth technique that exploits extreme substrate tilt (deposition angle
 `α > 70°`) to self-assemble tunable, porous, columnar nanostructures. GLAD films are used as
 gas-sensing platforms and as polarimetric/optical elements (waveplates, chiral filters,
 biosensors), because their column geometry controls both porosity and optical anisotropy through
 a single experimentally accessible knob: `α`.
 
-Both papers ask the same underlying question from two different angles: **what can a
+P1 and P2 ask the same underlying question from two different angles: **what can a
 physically-motivated ballistic growth model, and a machine-learning surrogate trained on its
 output, actually predict about GLAD morphology — and where, precisely, does that predictive power
-run out?** Answering that honestly (including the negative results) is the scientific content of
-both papers, not an afterthought.
+run out?** P3 asks a related but genuinely different question, moving from a single simulator to a
+literature-derived corpus spanning many materials: **can material identity itself — not just
+deposition angle — predict how GLAD column-tilt and porosity respond, for a material never seen
+during fitting, and if so, how confidently?** Answering both questions honestly (including the
+negative results) is the scientific content of all three papers, not an afterthought.
 
 > **Status:** pre-submission draft repository, kept private while the work is finalized. Not yet
 > peer-reviewed. See each paper's own PDF for the current abstract and scope.
 
 ---
 
-## The two papers
+## The three papers
 
 ### P1 — [`papers/P1_ballistic_GLAD_scope_limits/`](papers/P1_ballistic_GLAD_scope_limits/)
 *Realization-Dependent Microstructure and Statistical Morphology Emulation in Ballistic Helical
@@ -45,17 +48,44 @@ independently-nucleated realizations, tested against three structurally differen
 of which resolve it). Establishes a general label-quality diagnosis framework for NIF training on
 simulation output.
 
-**How they relate:** P1 motivates and characterises the underlying simulator; P2 builds a
-learned surrogate for it and studies exactly how far that surrogate can go. Both share a bead-sphere
-Cu GLAD simulation campaign and cite each other as companion work. A cross-paper caveat worth
-knowing if you read both closely: the two papers compute "occupied voxel fraction" over
-different `z`-ranges of the film in different tables — each paper discloses this explicitly where
-it matters (P1's Table on the oracle test; P2's Limitations section) rather than leaving it as a
-silent inconsistency.
+### P3 — [`papers/P3_cross_material_generalization_GLAD/`](papers/P3_cross_material_generalization_GLAD/)
+*Cross-Material Generalization for GLAD Column-Tilt and Porosity: A Pre-Registered Negative Result
+and Its Statistical Boundary*
 
-Each paper folder also contains an `aip_template/` subfolder with the same content reformatted for
-its intended submission venue (P1 → *Journal of Vacuum Science & Technology A*; P2 → *AIP
-Advances*); the main folder holds the more portable single-column version.
+Assembles a literature-derived corpus spanning up to 40 distinct materials (elemental metals,
+oxides, fluorides, chalcogenides) and asks whether material identity itself — via descriptors such
+as atomic mass, melting point, or bulk density — can predict how a *new* material, never seen
+during fitting, will behave under GLAD, for both column-tilt angle `β` and porosity `φ`. Under a
+strict, pre-registered two-part acceptance bar (≥15% RMSE improvement over a physics baseline
+*and* a material-level permutation-test `p<0.05`) evaluated by leave-one-material-out
+cross-validation, every learned model comfortably clears the RMSE bar for `β(α)` (up to +54.4%)
+and often for `φ(α)` (up to +28.5%), but no configuration — the pooled fit, three pre-registered
+material-class subgroups, two independent corpus-growth interventions, or a pairwise ranking
+reformulation — ever clears the permutation-test bar (`p=0.20`–`0.36` across every variant at the
+current corpus snapshot). Four candidate explanations are systematically tested and ruled out,
+isolating material-level sample size as the specific barrier; a complementary Bayesian
+hierarchical partial-pooling model finds a credible non-zero effect of atomic mass (94% HDI
+excluding zero), explaining rather than contradicting the frequentist null. The paper reports this
+as a fully pre-registered, diagnostically exhaustive account of where the statistical-power
+boundary for this class of problem currently sits.
+
+**How they relate:** P1 motivates and characterises the underlying ballistic simulator; P2 builds
+a learned surrogate for it and studies exactly how far that surrogate can go. P3 is a different
+kind of companion: it draws on the same physical quantities (`β`, porosity) but works from a
+disjoint, literature-derived corpus across many real materials rather than simulator output, asking
+a corpus-level generalization question instead of characterising a single simulation campaign. It
+is independently readable and citable, and does not depend on P1's or P2's code or data. A
+cross-paper caveat worth knowing if you read P1 and P2 closely together: the two papers compute
+"occupied voxel fraction" over different `z`-ranges of the film in different tables — each paper
+discloses this explicitly where it matters (P1's Table on the oracle test; P2's Limitations
+section) rather than leaving it as a silent inconsistency.
+
+Each of P1's and P2's paper folders also contains an `aip_template/` subfolder with the same
+content reformatted for its intended submission venue (P1 → *Journal of Vacuum Science & Technology
+A*; P2 → *AIP Advances*); the main folder holds the more portable single-column version. P3 also
+has an `aip_template/` subfolder, but its target venue is not yet finalized — P3's own README notes
+that *Machine Learning: Science and Technology* or *npj Computational Materials* may be a better
+fit than a standard AIP venue, given its negative-result/Bayesian framing.
 
 ---
 
@@ -63,8 +93,9 @@ Advances*); the main folder holds the more portable single-column version.
 
 ```
 papers/
-  P1_ballistic_GLAD_scope_limits/     LaTeX source, bibliography, figures, compiled PDF
-  P2_density_calibrated_NIF_GLAD/     same, for P2
+  P1_ballistic_GLAD_scope_limits/          LaTeX source, bibliography, figures, compiled PDF
+  P2_density_calibrated_NIF_GLAD/          same, for P2
+  P3_cross_material_generalization_GLAD/   same, for P3 (no figures — all results are tables)
 code/
   simulation/                         the ballistic GLAD simulator (glad_v3_core.py) + a launcher
   nif_corrnif/                        every NIF / CorrNIF training, evaluation, and dataset-

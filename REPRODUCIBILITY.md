@@ -42,6 +42,20 @@ repository (see the main [README](README.md) for why).
 | Fix C permutation test (n=3→n=8 seeds) | `code/nif_corrnif/test_permutation_fixC.py` | yes |
 | Base NIF model (FiLM-conditioned) | `code/nif_corrnif/models/nif_levelA_helical.py` | — |
 
+## P3 — `papers/P3_cross_material_generalization_GLAD/`
+
+P3's reproducibility story is different in kind from P1's and P2's. It reports no figures (every
+result is a table) and does not use the ballistic simulator or any NIF/CorrNIF training code in
+`code/simulation/` or `code/nif_corrnif/` — its inputs are a literature-derived, multi-material
+corpus of `β`/`φ` measurements, not simulator output. Its analysis (leave-one-material-out
+cross-validation of the four candidate models, the pre-registered permutation tests, the
+corpus-growth interventions, and the Bayesian hierarchical partial-pooling model) was produced by
+a separate set of literature-corpus analysis scripts (`P3_ML/` in the working project tree) that
+are **not currently included in this repository's `code/` directory** — `code/` contains only
+`figures/`, `nif_corrnif/`, and `simulation/`, none of which cover P3. This is a known gap, not an
+oversight: bringing P3's analysis pipeline into this repository is tracked as separate follow-up
+work. Until then, P3's reported numbers cannot be regenerated from what is currently in this repo.
+
 ## Simulator
 
 | Component | Path |
