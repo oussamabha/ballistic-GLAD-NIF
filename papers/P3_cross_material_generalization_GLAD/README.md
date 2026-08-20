@@ -21,7 +21,7 @@ insufficient sample size), isolating material-level sample size as the specific 
 complementary, deliberately different Bayesian hierarchical partial-pooling model finds that
 atomic mass has a credible non-zero effect on a material's mean offset from the tangent rule (94%
 HDI excluding zero), explaining — not contradicting — the frequentist null: a real-but-modest
-effect of this size is exactly what a permutation test at `n=14`–`40` materials is underpowered to
+effect of this size is exactly what a permutation test at `n=14`–`43` materials is underpowered to
 detect. We present this as a fully pre-registered, diagnostically exhaustive account of where the
 statistical-power boundary for this class of cross-material generalization problem currently sits.
 
