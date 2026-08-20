@@ -115,7 +115,7 @@ pre-registered material-class subgroups, two independent corpus-growth
 interventions targeting the most promising subgroup, a pairwise
 ranking reformulation of the task, or a pre-registered Fisher's-method
 combination across the three disjoint material-class subgroups
-($p=0.629$) -- ever clears the permutation-test bar (best $p=0.09$ for
+($p=0.715$) -- ever clears the permutation-test bar (best $p=0.09$ for
 $\beta(\alpha)$ at an earlier, smaller corpus snapshot; $p=0.20$--$0.36$
 across every variant tested at the current snapshot). We report this
 as an honest, thoroughly instrumented
@@ -678,7 +678,12 @@ materials -- V, Hf, Ta -- to the pre-registered elemental-metals class
 under the same fcc/bcc/hcp criterion decided before seeing any result)
 grew the subgroup to 17 materials, 88 rows, and gave $p=0.24$ --
 better than the cross-source attempt but still worse than the
-untouched 14-material baseline, and far from 0.05.
+untouched 14-material baseline, and far from 0.05. A subsequent,
+independent literature absorption (task \#72, 2026-08-20) added Fe
+(bcc), the same fcc/bcc/hcp criterion applied
+before seeing this result, growing the subgroup to 18 materials, 90
+rows, and giving $p=0.33$ -- again far from 0.05 and within the same
+0.20--0.36 range observed across every other variant of this subgroup.
 Table~\ref{tab:targeted_growth} summarizes.
 
 \begin{table}[htbp]
@@ -696,6 +701,7 @@ Table~\ref{tab:targeted_growth} summarizes.
     Baseline (Section~\ref{ssec:stratification}) & 14 & 53 & $+44.6\%$ & 0.20 \\
     Cross-source densification (W/Mo/Au)          & 14 & 72 & $+52.7\%$ & 0.30 \\
     Same-source densification (+V, Hf, Ta)        & 17 & 88 & $+54.4\%$ & 0.24 \\
+    + Fe (task \#72 absorption, 2026-08-20)        & 18 & 90 & $+49.6\%$ & 0.33 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -728,11 +734,12 @@ frozen before either was computed (full pre-registration:
 
 The primary combination pools the three disjoint, pre-registered
 material-class subgroups from Section~\ref{ssec:stratification} --
-elemental metals ($p=0.24$), oxides/fluorides ($p=0.55$), and
+elemental metals ($p=0.33$, updated after the Fe absorption of
+Section~\ref{ssec:targeted_growth}), oxides/fluorides ($p=0.55$), and
 chalcogenides/sulfides ($p=0.86$) -- which partition the same corpus
 into non-overlapping material sets, the cleanest independence case
 available in this dataset. The combined statistic is
-$X^2=4.35$, $df=6$, $p=0.629$: \textbf{not cleared}. A secondary,
+$X^2=3.71$, $df=6$, $p=0.715$: \textbf{not cleared}. A secondary,
 explicitly exploratory combination pools the three pooled
 observable-level tests that individually cleared the RMSE bar --
 $\beta(\alpha)$ ($p=0.22$), porosity($\alpha$) ($p=0.36$), and
@@ -1060,7 +1067,7 @@ results are an artifact of per-test underpowering rather than a
 genuine absence of effect -- was tested via a pre-registered Fisher's
 combined-probability test across the three disjoint material-class
 subgroups and separately across the three pooled observable-level
-tests, and also ruled out (combined $p=0.629$ and $p=0.390$
+tests, and also ruled out (combined $p=0.715$ and $p=0.390$
 respectively; neither clears the bar, and the input p-value magnitudes
 are not consistent with the diffuse-weak-signal regime Fisher's method
 is designed to detect). The specific, remaining, and
