@@ -112,11 +112,13 @@ model comfortably clears the RMSE bar for $\beta(\alpha)$ (up to
 $+54.4\%$ depending on corpus snapshot) and often for porosity($\alpha$)
 (up to $+28.5\%$), but no configuration -- the pooled fit, three
 pre-registered material-class subgroups, two independent corpus-growth
-interventions targeting the most promising subgroup, or a pairwise
-ranking reformulation of the task -- ever clears the permutation-test
-bar (best $p=0.09$ for $\beta(\alpha)$ at an earlier, smaller corpus
-snapshot; $p=0.20$--$0.36$ across every variant tested at the current
-snapshot). We report this as an honest, thoroughly instrumented
+interventions targeting the most promising subgroup, a pairwise
+ranking reformulation of the task, or a pre-registered Fisher's-method
+combination across the three disjoint material-class subgroups
+($p=0.629$) -- ever clears the permutation-test bar (best $p=0.09$ for
+$\beta(\alpha)$ at an earlier, smaller corpus snapshot; $p=0.20$--$0.36$
+across every variant tested at the current snapshot). We report this
+as an honest, thoroughly instrumented
 negative result: the barrier is specifically material-level sample
 size, not model choice, feature choice, task formulation, or
 extraction quality, all four of which were tested and ruled out as
@@ -709,6 +711,50 @@ returned usable new data for only one (Sb) via open web search -- a
 genuine access limitation of the search tools available for this
 project, not proof the underlying literature does not exist.
 
+\subsection{A pre-registered meta-analytic combination}
+\label{ssec:metaanalysis}
+
+A final, orthogonal hypothesis is that the null result reflects
+per-test underpowering rather than a genuine absence of any effect --
+each individual test (pooled fit, each material-class subgroup, each
+observable) may be too small to detect a real but modest signal on its
+own, even if that signal is genuinely present and consistent in
+direction across tests. Fisher's combined probability test
+($X^2=-2\sum\ln p_i$, $\chi^2_{2k}$ under the joint null) is a standard
+tool for exactly this regime, and was applied here to two
+pre-registered combinations chosen for their independence properties,
+frozen before either was computed (full pre-registration:
+\texttt{META\_ANALYSIS\_PREREGISTRATION\_20260820.md}).
+
+The primary combination pools the three disjoint, pre-registered
+material-class subgroups from Section~\ref{ssec:stratification} --
+elemental metals ($p=0.24$), oxides/fluorides ($p=0.55$), and
+chalcogenides/sulfides ($p=0.86$) -- which partition the same corpus
+into non-overlapping material sets, the cleanest independence case
+available in this dataset. The combined statistic is
+$X^2=4.35$, $df=6$, $p=0.629$: \textbf{not cleared}. A secondary,
+explicitly exploratory combination pools the three pooled
+observable-level tests that individually cleared the RMSE bar --
+$\beta(\alpha)$ ($p=0.22$), porosity($\alpha$) ($p=0.36$), and
+$n(\alpha)$ ($p=0.54$) -- for which the independence assumption is
+only approximate (materials and source papers overlap across
+observable corpora); this gives $X^2=6.30$, $df=6$, $p=0.390$, also
+not cleared.
+
+Fisher's method is most sensitive when several individual p-values
+cluster in a moderately small range (roughly 0.03--0.15) without any
+one crossing 0.05 alone. That is not the regime observed here: input
+p-values of 0.22--0.86 are broadly consistent with genuinely null or
+near-null per-test effects, not a diffuse signal masked only by
+underpowering. This result therefore argues, if anything, against
+per-test underpowering as the sole explanation for the negative
+result at the subgroup/observable level -- while remaining fully
+consistent with the Bayesian hierarchical finding
+(Section~\ref{ssec:bayes}), which concerns a different, narrower
+question (a specific credible effect of atomic mass within the
+elemental-metals corpus) rather than an aggregate cross-class or
+cross-observable claim.
+
 \subsection{Reformulating the task: ranking instead of regression}
 \label{ssec:ranking}
 
@@ -1009,7 +1055,15 @@ independent targeted corpus-growth interventions, or a pairwise
 ranking reformulation of the task -- ever clears the permutation-test
 significance bar. Four plausible alternative explanations (feature
 choice, extraction quality, class heterogeneity, task formulation)
-were tested directly and ruled out; the specific, remaining, and
+were tested directly and ruled out; a fifth -- that the negative
+results are an artifact of per-test underpowering rather than a
+genuine absence of effect -- was tested via a pre-registered Fisher's
+combined-probability test across the three disjoint material-class
+subgroups and separately across the three pooled observable-level
+tests, and also ruled out (combined $p=0.629$ and $p=0.390$
+respectively; neither clears the bar, and the input p-value magnitudes
+are not consistent with the diffuse-weak-signal regime Fisher's method
+is designed to detect). The specific, remaining, and
 well-quantified bottleneck is material-level sample size. A
 complementary Bayesian hierarchical partial-pooling model, fit
 independently and asking a different statistical question, finds a
