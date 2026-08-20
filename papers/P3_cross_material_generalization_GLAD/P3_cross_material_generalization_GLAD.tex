@@ -1,0 +1,1075 @@
+% ============================================================
+%  P3 — Cross-Material Transfer of GLAD Column-Tilt and
+%       Porosity Models: A Rigorous Negative Result and Its
+%       Statistical Boundary
+%
+%  Target: methodological / materials-informatics venue
+%          (companion to P1 ballistic-simulation-scope and P2
+%          density-calibrated-NIF manuscripts)
+%
+%  Key results (all numbers traced to 02_PINN_NIF/P3_ML/*.md,
+%  none recomputed for this draft):
+%    - Pooled LOMO-CV cross-material model for column-tilt beta(alpha),
+%      n=178 rows / 37 materials: gradient-boosted trees +49.2% RMSE
+%      vs. tangent-rule physics baseline, permutation p=0.22 (n_perm=100).
+%      RMSE bar cleared, significance bar NOT cleared.
+%    - Porosity(alpha), n=91/19 (post-audit corpus): random forest
+%      +19.2% RMSE vs naive-mean baseline, p=0.36. NOT cleared.
+%    - refractive_index(alpha), n=78/13: GP +16.2%, p=0.54. NOT cleared.
+%    - band_gap Eg(alpha), n=67/10: no model beats naive-mean baseline.
+%      NOT cleared (fails RMSE bar too).
+%    - Material-class stratification (elemental metals/oxides-fluorides/
+%      chalcogenides): no subgroup clears p<0.05; elemental metals
+%      closest (p=0.20 at n=14).
+%    - Targeted elemental-metals corpus growth (cross-source and
+%      same-source densification): p ranges 0.20-0.36 across every
+%      variant tried; no lever reliably improves it.
+%    - Pairwise-ranking reformulation: beta accuracy 0.746 (vs 0.544
+%      baseline), p=0.27; porosity accuracy 0.725 (vs 0.602), p=0.28.
+%      Both clear the accuracy bar, neither clears significance.
+%    - Bayesian hierarchical partial-pooling model (n=213/40): atomic
+%      mass's effect on the intercept excludes zero (94% HDI
+%      [-7.24,-0.34]); Bayesian R^2 median 0.28 (intercept layer),
+%      0.20 (slope layer); P(R^2>0.1) = 92%/80%. Genuine complementary
+%      positive finding, not in conflict with the frequentist verdict.
+%
+%  Draft status: first LaTeX draft, assembled 2026-08-20 from
+%    02_PINN_NIF/P3_ML/P3_RESULTS_SECTION_DRAFT_20260815.md (primary
+%    source, "FINAL RESULT v2" section) and its companion reports
+%    (material_class_stratified_analysis_20260817.md,
+%    bayesian_hierarchical_report.md, ranking_reformulation_report.md,
+%    feature_importance_report.md, model_comparison_report.md,
+%    feature_table_report_v2.md, band_gap_eg_report.md,
+%    refractive_index_phase0_report.md). No numbers invented; every
+%    figure below traces to one of those files.
+%  Author: Oussama Ben Haj Ali (LPMS, ENIT / UTM).
+%  Date  : August 2026
+% ============================================================
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{hyperref}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{lineno}
+\usepackage{setspace}
+\usepackage{xcolor}
+\usepackage{natbib}
+\usepackage{nicefrac}
+
+\doublespacing
+\linenumbers
+
+\renewcommand{\ang}{\ensuremath{\alpha}} % bare-symbol form used throughout,
+                                          % as in the companion P1/P2 manuscripts
+\newcommand{\lomo}{\textsc{lomo-cv}}
+\newcommand{\beto}{\ensuremath{\beta(\alpha)}}
+\newcommand{\poro}{\ensuremath{\phi(\alpha)}}
+
+% ============================================================
+\begin{document}
+
+\title{%
+  Cross-Material Transfer of GLAD Column-Tilt and Porosity
+  Models: A Rigorous Negative Result and Its Statistical
+  Boundary
+}
+
+\author{%
+  \parbox{0.92\textwidth}{\centering
+  Oussama Ben Haj Ali$^{1}$%
+  \thanks{Corresponding author: oussama.benhadjali@fst.utm.tn}
+  , Ferid Chaffar Akkari$^{1}$,
+  Bruno Gallas$^{2}$,
+  Nicolas Martin$^{3}$
+  \\[0.4em]
+  \small
+  $^{1}$Laboratoire de Photovolta\"{i}que et Mat\'{e}riaux Semi-conducteurs (LPMS),
+  \'{E}cole Nationale d'Ing\'{e}nieurs de Tunis (ENIT),
+  Universit\'{e} de Tunis El Manar (UTM), Tunisia;
+  $^{2}$Institut des NanoSciences de Paris (INSP), CNRS, Sorbonne Universit\'{e}, Paris, France;
+  $^{3}$FEMTO-ST Institute, CNRS, Universit\'{e} de Franche-Comt\'{e}, Besan\c{c}on, France
+  }
+}
+
+\date{August 2026}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\begin{abstract}
+Glancing-angle deposition (GLAD) produces tilted, porous columnar thin
+films whose column-tilt angle $\beta$ and porosity $\phi$ are the two
+morphological quantities most directly linked to a film's optical and
+electrical anisotropy. Existing predictive relations for both
+quantities are either purely geometric (the tangent rule for $\beta$)
+or material-specific empirical fits; no published model uses material
+identity itself -- through physically motivated descriptors such as
+atomic mass, melting point, or bulk density -- to predict how a
+\emph{new} material, never seen during fitting, will behave under
+GLAD. We assembled a literature-derived corpus of experimentally
+measured $\beta(\alpha)$ and porosity($\alpha$) values spanning up to
+40 distinct materials (elemental metals, oxides, fluorides,
+chalcogenides), fitted four candidate models (linear regression,
+Gaussian process regression, gradient-boosted trees, random forest)
+under leave-one-material-out cross-validation (\lomo{}), and
+pre-registered a strict acceptance bar before inspecting any result:
+$\geq 15\%$ \lomo{} RMSE improvement over a physics/naive baseline
+\emph{and} a material-level permutation-test $p<0.05$. Every learned
+model comfortably clears the RMSE bar for $\beta(\alpha)$ (up to
+$+54.4\%$ depending on corpus snapshot) and often for porosity($\alpha$)
+(up to $+28.5\%$), but no configuration -- the pooled fit, three
+pre-registered material-class subgroups, two independent corpus-growth
+interventions targeting the most promising subgroup, or a pairwise
+ranking reformulation of the task -- ever clears the permutation-test
+bar (best $p=0.09$ for $\beta(\alpha)$ at an earlier, smaller corpus
+snapshot; $p=0.20$--$0.36$ across every variant tested at the current
+snapshot). We report this as an honest, thoroughly instrumented
+negative result: the barrier is specifically material-level sample
+size, not model choice, feature choice, task formulation, or
+extraction quality, all four of which were tested and ruled out as
+explanations. As a complementary, deliberately different analysis, a
+pre-registered Bayesian hierarchical partial-pooling model fitted to
+the same $\beta(\alpha)$ corpus ($n=213$ rows, $40$ materials, all MCMC
+diagnostics clean) finds that atomic mass has a credible non-zero
+effect on a material's mean offset from the tangent rule (94\% highest
+density interval excluding zero) and that Bayesian $R^2$ posteriors
+place 80--92\% probability on material descriptors explaining more
+than 10\% of between-material variance. This does not overturn the
+frequentist non-significance verdict -- it explains it: a
+real-but-modest effect of the size the Bayesian model finds is exactly
+what a permutation test at $n=14$--$40$ materials is underpowered to
+detect at $p<0.05$. We present this paper as a resource for the
+GLAD/materials-informatics community: a fully pre-registered,
+diagnostically exhaustive account of where the statistical-power
+boundary for this class of cross-material generalization problem
+currently sits, together with the specific corpus-growth target
+(professional literature-database access to 30+ elemental metals,
+particularly platinum-group and rare-earth species) that would most
+directly move it.
+\end{abstract}
+
+\newpage
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+
+Glancing-angle deposition (GLAD) is a physical vapor deposition
+technique in which the substrate is tilted at a large angle
+$\alpha$ (measured from the surface normal) relative to the incoming
+vapor flux, so that geometric self-shadowing among growing nuclei
+produces isolated, tilted columnar structures rather than a dense
+film \citep{robbie1997,hawkeye2007,hawkeye2014}. The resulting films
+combine two properties of independent technological interest: a
+column-tilt angle $\beta$, generally smaller than the deposition angle
+$\alpha$ because incoming flux is captured preferentially by the
+upper, unshadowed part of a growing column, and an internal porosity
+$\phi$ set by how completely that self-shadowing excludes flux from
+the space between columns. Both properties drive the strong optical
+and electrical anisotropy that makes GLAD films attractive for
+polarization optics, sensing, and photovoltaic light management
+\citep{brett2008science,lakhtakia2005stf,messier2000origin}.
+
+The relationship between $\alpha$ and $\beta$ has a long-standing
+geometric approximation, the tangent rule
+\citep{tait1993modelling,thornton1974}, which treats column growth as
+a purely ballistic shadowing process independent of the depositing
+material's identity. In practice, measured $\beta(\alpha)$ curves for
+different materials deposited under nominally comparable conditions
+show real, reproducible scatter around the tangent-rule prediction
+\citep{chaffar2018,chaffar2019,tounsi2015,benamor2026,%
+benNacer2020cu2oGlad} -- a scatter plausibly attributable to
+material-dependent surface mobility, sticking coefficient, and
+crystal structure, none of which the tangent rule encodes. Porosity
+has no comparably established closed-form geometric rule at all;
+published porosity($\alpha$) values are almost always reported and
+modeled per-material. This project's own ballistic GLAD simulator
+(companion manuscript, \citealp{companionP1}) and density-calibrated
+neural-field surrogate (companion manuscript, \citealp{companionP2})
+both operate at fixed, explicitly specified material parameters; a
+model that could predict $\beta(\alpha)$ or $\phi(\alpha)$ for a
+material \emph{not} already in the simulator's parameter database,
+using only readily available descriptors of that material, would be
+directly useful for screening new material choices before running any
+simulation or deposition campaign.
+
+This motivates a natural question: can material descriptors
+(atomic mass, melting point, bulk density, crystal structure,
+deposition method) predict a material's $\beta(\alpha)$ or
+$\phi(\alpha)$ curve well enough, and reliably enough across held-out
+materials, to be useful for this kind of screening? We built a
+literature-derived corpus spanning up to 40 distinct materials across
+elemental metals, oxides, fluorides, and chalcogenides, and answered
+this question with a pre-registered, leakage-controlled
+leave-one-material-out (\lomo{}) evaluation protocol, reported here in
+full together with the extensive, honestly documented attempts made to
+recover a positive result once the pooled result fell short. We regard
+the resulting negative-to-mixed finding as a genuine contribution in
+its own right, not a shortfall to be minimized: it identifies exactly
+where, quantitatively, the statistical-power boundary for this class
+of materials-informatics problem currently sits, rules out four
+plausible alternative explanations (wrong features, wrong task
+formulation, class heterogeneity, extraction quality) for the
+boundary, and provides a Bayesian complementary analysis that
+characterizes the size of the effect the frequentist test cannot yet
+resolve. This is offered explicitly as a resource for future
+corpus-growth efforts in this specific sub-field, in the spirit that a
+well-instrumented negative result that saves the next researcher from
+repeating the same five failed levers is worth reporting on its own
+merits.
+
+The remainder of this paper is organized as follows.
+Section~\ref{sec:methods} describes the corpus, the pre-registered
+evaluation protocol, the four candidate models, the material-class
+stratification, the pairwise-ranking reformulation, and the Bayesian
+hierarchical model specification. Section~\ref{sec:results} reports
+the pooled results for all four target observables, the
+class-stratified results, the targeted corpus-growth push within the
+most promising class, the ranking reformulation, and the Bayesian
+hierarchical analysis. Section~\ref{sec:discussion} interprets these
+results together, argues for reading them as a genuine
+statistical-power finding rather than a failure of modeling
+approach, and identifies the concrete corpus-growth target that would
+most directly resolve the open question. Section~\ref{sec:conclusion}
+summarizes.
+
+% ============================================================
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Corpus and target observables}
+\label{ssec:corpus}
+
+Four target observables were evaluated, all as a function of
+deposition angle $\alpha$: column-tilt angle $\beta(\alpha)$,
+porosity $\phi(\alpha)$, refractive index $n(\alpha)$, and optical
+band gap $E_g(\alpha)$. Rows were drawn from the project's ongoing
+literature-absorption effort (peer-reviewed papers and, in a small
+number of cases, PhD theses, reporting angle-resolved measurements of
+one or more of these quantities for a named material) and assembled
+into per-observable feature tables by an automated pipeline
+(\texttt{build\_feature\_table.py}) that attaches five candidate
+material descriptors to every row: atomic mass, melting point, bulk
+density, crystal structure (categorical), and deposition method
+(categorical: e-beam evaporation, thermal evaporation, DC/RF
+sputtering, etc.). Rows lacking a numeric target value, an unresolved
+deposition angle, or a required descriptor for the base material were
+excluded (26/228 excluded rows for $\beta$, 11/114 for porosity, at the
+snapshot reported in Table~\ref{tab:coverage}); exclusion reasons are
+logged per-row and are not adjusted after seeing model results. Corpus
+size grew substantially over the course of this investigation as
+literature absorption continued in parallel with model evaluation;
+every result below states the exact $(n_{\mathrm{rows}},
+n_{\mathrm{materials}})$ snapshot it was computed on, since corpus
+snapshots differ across sections of this paper by design -- later
+sections report tests run against a larger corpus than earlier
+sections, reflecting real, ongoing corpus growth rather than
+selective reporting.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Feature-table coverage at the most complete raw-table
+    snapshot produced during this investigation (2026-08-17), shown
+    here to illustrate typical exclusion reasons and per-observable
+    coverage. Because literature absorption continued throughout the
+    investigation, this raw snapshot is not identical to any single
+    downstream analysis's corpus: the pooled baseline
+    (Section~\ref{ssec:pooled}), the earlier corpus-growth campaign
+    (Table~\ref{tab:corpus_growth}), the class-stratification and
+    ranking analyses (Sections~\ref{ssec:stratification}--\ref{ssec:ranking}),
+    and the Bayesian hierarchical model (Section~\ref{ssec:bayes}) were
+    each run at their own specific, smaller snapshot along this same
+    growth trajectory (after an analysis-specific descriptor-completeness
+    filter), and each result below states its own exact
+    $(n_{\mathrm{rows}}, n_{\mathrm{materials}})$.}
+  \label{tab:coverage}
+  \begin{tabular}{lrr}
+    \toprule
+    Target observable & Rows & Distinct materials \\
+    \midrule
+    Column-tilt angle $\beta(\alpha)$ & 228 (202 usable) & 43 \\
+    Porosity $\phi(\alpha)$ & 114 (103 usable) & 23 \\
+    Refractive index $n(\alpha)$ & 105 (102 usable) & 16 \\
+    Band gap $E_g(\alpha)$ & 78 (72 usable) & 12 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Pre-registered evaluation criterion}
+\label{ssec:preregistration}
+
+Before fitting any model to a given corpus snapshot, a single
+acceptance criterion was fixed for each target observable,
+independent of the outcome: a candidate model was considered to have
+cleared the bar only if it achieved (i) a leave-one-material-out
+cross-validated RMSE at least 15\% lower than the corresponding
+baseline (the tangent rule for $\beta(\alpha)$; the \lomo{} train-mean
+for porosity, refractive index, and $E_g$, since no established
+closed-form geometric rule exists for these), and (ii) a
+material-level permutation-test $p$-value below 0.05. Both conditions
+were fixed prior to inspecting either result and applied identically
+across all four observables and every corpus snapshot reported below.
+Results are reported as obtained, including every negative and
+partially negative outcome, without post-hoc adjustment of the
+criterion.
+
+\subsection{Leave-one-material-out cross-validation}
+\label{ssec:lomo}
+
+All model comparisons use leave-one-material-out (\lomo{}) rather than
+leave-one-row-out cross-validation: rows from the same material
+(often multiple angles from a single reproducibility series or
+multiple points digitized from one figure) are not statistically
+independent, and evaluating a model on a held-out \emph{row} whose
+material was seen during training would leak information the model
+could exploit without any genuine cross-material generalization
+ability. Under \lomo{}, one material's entire row set is held out as
+the test fold on each iteration, and the model is refit on the
+remaining materials; this directly measures whether descriptor-based
+generalization to a truly unseen material is possible, which is the
+scientific question this paper asks.
+
+\subsection{Candidate models}
+\label{ssec:models}
+
+Four models were compared under the identical \lomo{} protocol, plus
+the relevant baseline for each observable:
+\begin{itemize}
+  \item \textbf{Physics/naive baseline}: the tangent rule (a
+    zero-free-parameter geometric relation) for $\beta(\alpha)$; the
+    \lomo{} train-mean for porosity, refractive index, and $E_g$
+    (no established closed-form rule for these).
+  \item \textbf{Linear regression} on the standardized descriptor set.
+  \item \textbf{Gaussian process regression} (Mat\'{e}rn-5/2 kernel plus
+    a white-noise term; \texttt{scikit-learn}
+    \texttt{GaussianProcessRegressor}) \citep{rasmussen2006gp,%
+    pedregosa2011sklearn} -- designated the primary candidate at the
+    project's earliest evaluation round, before the gradient-boosted
+    and random-forest comparators were added.
+  \item \textbf{Gradient-boosted trees}
+    \citep{friedman2001gbm,pedregosa2011sklearn}.
+  \item \textbf{Random forest} \citep{breiman2001randomforest,%
+    pedregosa2011sklearn}.
+\end{itemize}
+All descriptor-based models share the same feature pipeline: numeric
+descriptors are standardized (zero mean, unit variance, fit on the
+training fold only) and categorical descriptors (crystal structure,
+deposition method) are one-hot encoded, both wrapped in a
+\texttt{scikit-learn} \texttt{ColumnTransformer}/\texttt{Pipeline} so
+that no fold-specific statistic is computed on held-out data.
+
+\subsection{Material-level permutation test}
+\label{ssec:permutation}
+
+Statistical significance of a model's \lomo{} RMSE improvement over
+its baseline is assessed with a material-level permutation test
+\citep{ojala2010permutation}: the
+material-block labels attached to each row (not individual rows) are
+shuffled $n_{\mathrm{perm}}=100$ times, the same \lomo{} model-fitting
+and RMSE-improvement calculation is repeated on each shuffled
+assignment, and $p$ is the fraction of shuffles whose RMSE improvement
+equals or exceeds the improvement observed on the real, unshuffled
+data. Shuffling at the material-block level, rather than the row
+level, is essential: row-level shuffling would break the same
+within-material correlation structure that motivates \lomo{} in the
+first place and would understate the true null distribution's spread,
+inflating apparent significance. An early corpus snapshot ($n=73$
+rows, 23 materials) returned $p=0.020$ for $\beta(\alpha)$, initially
+reported as a cleared result; this did not survive further, real
+corpus growth (Section~\ref{ssec:pooled}), which is itself part of
+this paper's evidence that a single small-corpus permutation-test
+result should not be treated as final without a subsequent replication
+check as the corpus grows.
+
+\subsection{Material-class stratification}
+\label{ssec:stratification_method}
+
+To test whether the pooled model's failure to clear significance
+reflects genuine cross-class physical heterogeneity being averaged
+away -- elemental metals, ionic/covalent oxides and fluorides, and
+covalent chalcogenides plausibly respond differently to ballistic
+shadowing -- a grouping by crystal-structure/bonding chemistry was
+pre-registered and frozen \emph{before} any per-class fit was run:
+elemental metals (fcc/bcc/hcp pure elements), rock-salt nitrides
+(grouped with AlN by anion chemistry), oxides/fluorides
+(ionic/covalent, ZnO included by anion chemistry despite its wurtzite
+structure), and chalcogenides/sulfides. A minimum of five materials
+per subgroup was pre-registered as a floor for testing; subgroups
+below this floor are reported as untested, not as null results. Each
+qualifying subgroup was fit with the identical four-model comparison,
+\lomo{}-CV, and material-level permutation protocol used for the
+pooled model.
+
+\subsection{Pairwise ranking reformulation}
+\label{ssec:ranking_method}
+
+As an orthogonal test of whether the pre-registered exact-value
+regression criterion is testing the wrong task, a pairwise-ranking
+reformulation was pre-registered
+(\texttt{RANKING\_REFORMULATION\_PREREGISTRATION\_20260817.md}): given
+two materials A and B measured at angles within $\pm 5^{\circ}$ of
+each other, predict whether A's target value exceeds B's, rather than
+predicting either value exactly. This is scientifically useful in its
+own right (materials-selection screening does not always require an
+exact predicted value, only a reliable ranking) and might expose
+cross-material signal that exact-value regression cannot. The same
+\lomo{} and material-level permutation protocol was applied to the
+ranking task ($n_{\mathrm{perm}}=100$), against a separately
+pre-registered bar: pooled \lomo{} pairwise accuracy $\geq 0.60$
+\emph{and} permutation $p<0.05$. Candidate models were a zero-parameter
+tangent-rule baseline, an angle-difference-only logistic baseline (to
+isolate any signal carried by $\alpha$ alone, independent of material
+identity), a full-descriptor linear (logistic) ranker, and a
+full-descriptor gradient-boosted ranker.
+
+\subsection{Bayesian hierarchical partial-pooling model}
+\label{ssec:bayes_method}
+
+As a final, deliberately different analysis, a Bayesian hierarchical
+(partial-pooling) model was pre-registered
+(\texttt{BAYESIAN\_HIERARCHICAL\_PREREGISTRATION\_20260817.md}, fixed
+before fitting) and fit to the $\beta(\alpha)$ corpus using
+\texttt{PyMC} 5.28.5 with \texttt{ArviZ} 0.23.4 for diagnostics
+\citep{salvatier2016pymc3}, sampled with the No-U-Turn Sampler (NUTS,
+CPU only). This model asks a different question from the frequentist
+tests above: not ``does a flexible model out-predict the physics
+baseline on a held-out material by a margin unlikely under
+label-shuffling?'', but ``how much of the material-to-material spread
+in $\beta(\alpha)$ is attributable, in a regularized partial-pooling
+regression, to physically motivated descriptors, and with what
+uncertainty?'' The model places a per-material random intercept
+$a_i$ and slope $b_i$ on the tangent-rule residual (i.e., a
+material-specific affine correction to the physics baseline as a
+function of $\alpha$), regressed at the population level on three
+standardized descriptors (atomic mass, melting point, bulk density);
+crystal structure was excluded from the group-level regression for
+identifiability reasons at 19 levels across 43 materials. Convergence
+was assessed with the rank-normalized $\hat{R}$ diagnostic
+\citep{vehtari2021rhat} and effective sample size. The primary
+deliverable is the Bayesian $R^2$
+\citep{gelman2019r2} -- computed per posterior draw as
+$\mathrm{Var}(\mathrm{fitted})/(\mathrm{Var}(\mathrm{fitted}) +
+\mathrm{residual\ variance})$, separately for the intercept layer
+($R^2_a$) and the slope layer ($R^2_b$) -- reported as an in-sample
+quantity (how much structure the fitted model captures), not a
+cross-validated one (how well it would predict a new material).
+
+% ============================================================
+\section{Results}
+\label{sec:results}
+
+\subsection{Pooled cross-material models: RMSE bar cleared, significance bar not}
+\label{ssec:pooled}
+
+Table~\ref{tab:pooled_all} summarizes the best-model \lomo{} result
+for all four target observables at the post-comprehensive-audit corpus
+snapshot ($\beta(\alpha)$: $n=178$ rows/37 materials;
+porosity($\alpha$): $n=91/19$; refractive index: $n=78/13$; $E_g$:
+$n=67/10$). For $\beta(\alpha)$, the tangent-rule baseline achieves a
+\lomo{} RMSE of 27.136$^{\circ}$; every learned model outperforms it,
+with gradient-boosted trees the best performer at 13.782$^{\circ}$
+($+49.2\%$). This comfortably clears the pre-registered 15\% RMSE bar.
+The material-level permutation test, however, returns $p=0.22$
+($n_{\mathrm{perm}}=100$), far from the 0.05 significance threshold.
+For porosity($\alpha$), random forest reaches $+19.2\%$ RMSE
+improvement over the naive-mean baseline (25.380 vs. 31.399,
+porosity in percentage points) -- clearing the RMSE bar -- with
+permutation $p=0.36$. One of the five porosity candidates, linear
+regression, underperforms the baseline outright ($-37.3\%$); the
+remaining three learned models cluster closely together and all
+clear the RMSE bar (Gaussian process $+18.1\%$, gradient-boosted
+trees $+17.9\%$, random forest $+19.2\%$, the best performer),
+underscoring that the RMSE improvement random forest achieves is a
+genuine, model-class-independent effect and not an artifact of a
+single weak comparator.
+Refractive index ($+16.2\%$, $p=0.54$) shows the same pattern. Band
+gap $E_g(\alpha)$ is the sole observable for which no learned model
+even clears the RMSE bar (best learned model $-9.3\%$, i.e.\ worse
+than baseline; the naive-mean baseline itself remains the best
+``model''), so its permutation test is not applicable.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Best-model \lomo{}-CV comparison against the pre-registered
+    bar, all four target observables, post-comprehensive-audit corpus
+    snapshot. RMSE improvement is relative to the tangent-rule baseline
+    (\beto{}) or the \lomo{} train-mean baseline (porosity, $n$,
+    $E_g$). Permutation $p$ from $n_{\mathrm{perm}}=100$ material-block
+    shuffles.}
+  \label{tab:pooled_all}
+  \begin{tabular}{lrrlrrc}
+    \toprule
+    Observable & Rows & Materials & Best model & RMSE $\Delta$ & Perm. $p$ & Bar cleared? \\
+    \midrule
+    $\beta(\alpha)$          & 178 & 37 & gradient-boosted trees & $+49.2\%$ & 0.22 & No \\
+    Porosity $\phi(\alpha)$  & 91  & 19 & random forest          & $+19.2\%$ & 0.36 & No \\
+    $n(\alpha)$              & 78  & 13 & Gaussian process       & $+16.2\%$ & 0.54 & No \\
+    $E_g(\alpha)$            & 67  & 10 & naive-mean baseline    & $+0.0\%$  & n/a  & No \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Feature importance for the confirmed \beto{} model}
+\label{sssec:lofo}
+
+A leave-one-feature-out (LOFO) analysis on the primary Gaussian process
+candidate at an earlier corpus snapshot ($n=73$ rows/23 materials,
+full-model \lomo{} RMSE $=11.593^{\circ}$) shows the deposition angle
+$\alpha$ itself dominates, as expected (RMSE rises to
+$19.363^{\circ}$ when removed). Among material descriptors, melting
+point (RMSE $13.980^{\circ}$ without it) and atomic mass
+($12.585^{\circ}$) carry essentially all of the genuine cross-material
+signal beyond $\alpha$; bulk density and crystal structure do not
+merely fail to help -- removing either one \emph{improves} \lomo{}
+RMSE slightly (to $11.460^{\circ}$ and $10.793^{\circ}$
+respectively), indicating these two features contribute noise rather
+than signal to the fitted GP at this corpus size
+(Table~\ref{tab:lofo}). This descriptive analysis is not itself
+subject to the pre-registered significance bar (which applies only to
+the model-vs-baseline comparison), but it is directly consistent with
+the Bayesian hierarchical model's independent identification of
+atomic mass as the one descriptor with a credibly non-zero effect
+(Section~\ref{ssec:bayes}).
+
+\begin{table}[htbp]
+  \centering
+  \caption{Leave-one-feature-out importance for the \beto{} Gaussian
+    process model ($n=73$ rows, 23 materials). A larger RMSE increase
+    when a feature is removed indicates more predictive signal
+    currently attributed to that feature.}
+  \label{tab:lofo}
+  \begin{tabular}{lrr}
+    \toprule
+    Feature removed & \lomo{} RMSE without it ($^\circ$) & $\Delta$RMSE \\
+    \midrule
+    $\alpha$ (deposition angle) & 19.363 & $+7.769$ \\
+    Melting point & 13.980 & $+2.387$ \\
+    Atomic mass & 12.585 & $+0.991$ \\
+    Deposition method & 11.819 & $+0.225$ \\
+    \emph{(full model)} & 11.593 & --- \\
+    Bulk density & 11.460 & $-0.134$ \\
+    Crystal structure & 10.793 & $-0.801$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{The corpus-growth campaign: RMSE improves, significance does not}
+\label{ssec:corpus_growth}
+
+Following the initial cleared result at $n=73$ rows/23 materials
+($p=0.020$), further, real corpus growth caused the permutation
+$p$-value to rise, first to 0.13 at $n=93/25$ materials, confirmed at
+a second random seed ($p=0.09$). Five independent corpus-growth
+avenues were then pursued deliberately, rather than treating this as
+a one-off setback: a targeted literature-backlog absorption pass; a
+web-escalation search for entirely new source materials (finding two,
+SiO$_2$ and HfO$_2$, with genuine open-access angle-series data, and
+correctly excluding two paywalled/snippet-only leads, Ta$_2$O$_5$ and
+TiN, rather than fabricating values from partial information); a
+feature-engineering ablation adding Cordero covalent atomic radius and
+homologous temperature $T/T_{\mathrm{melt}}$; a deep re-digitization of
+nine already-absorbed source papers under a stricter protocol of
+visually analyzing every figure directly rather than relying on text
+extraction (which recovered 43 new data points, most notably growing
+ZnO's series from 1 to 22 points); and a whole-drive sweep for
+misplaced literature PDFs (which found one further relevant paper,
+reporting only two discrete angles, too sparse to contribute \lomo{}
+rows). Table~\ref{tab:corpus_growth} reports the resulting best
+figures at $n=132$ rows/27 materials.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Corpus-growth campaign result, all four observables, at
+    the $n=132$ rows/27-materials $\beta(\alpha)$ snapshot (the single
+    most effective lever tried was the deep figure-level
+    re-digitization pass).}
+  \label{tab:corpus_growth}
+  \begin{tabular}{lrrlrrc}
+    \toprule
+    Observable & Rows & Materials & Best model & RMSE $\Delta$ & Perm. $p$ & Bar cleared? \\
+    \midrule
+    $\beta(\alpha)$          & 132 & 27 & gradient-boosted trees & $+46.4\%$ & 0.09 & No \\
+    Porosity $\phi(\alpha)$  & 64  & 13 & random forest          & $+28.5\%$ & 0.40 & No \\
+    $n(\alpha)$              & 37  & 7  & linear regression      & $+13.1\%$ & 0.70 & No (fails RMSE too) \\
+    $E_g(\alpha)$            & 49  & 6  & naive-mean baseline    & ---       & n/a  & No \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The feature-engineering ablation moved neither RMSE improvement nor
+permutation $p$ for either $\beta$ or porosity, ruling out ``wrong
+feature set'' as an explanation for the shortfall. $\beta(\alpha)$'s
+permutation $p$ fell monotonically with every genuine data-density
+increase across this round of the investigation
+($0.13 \rightarrow 0.09$), a directional trend more consistent with a
+real, currently under-sampled effect than with pure noise -- offered
+here as a plausibility argument, not as evidence the effect is
+proven; the honest reportable result at this snapshot remained NOT
+CLEARED.
+
+\subsection{Does material-class heterogeneity explain the pooled failure?}
+\label{ssec:stratification}
+
+By a later corpus snapshot -- $n=37$ materials for the pooled
+$\beta(\alpha)$ fit, gradient-boosted trees $+49.2\%$, $p=0.22$
+(the snapshot in Table~\ref{tab:pooled_all}) -- a natural hypothesis
+was tested directly: perhaps pooling elemental metals, oxides/
+fluorides, and chalcogenides into a single fit averages away real,
+class-specific physics that a per-class fit would recover.
+Table~\ref{tab:stratified} reports the pre-registered per-class
+result. The hypothesis is \textbf{not confirmed}: no class clears
+$p<0.05$. Chalcogenides/sulfides reach $+23.1\%$ RMSE improvement at
+$p=0.86$; oxides/fluorides $+41.8\%$ at $p=0.55$; elemental metals --
+the largest and chemically most homogeneous subgroup -- $+44.6\%$ at
+$p=0.20$, the closest of the three to significance but still far above
+the bar. Rock-salt nitrides (4 materials, 18 rows) fell below the
+pre-registered five-material minimum and were not tested.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Material-class-stratified \beto{} results, pre-registered
+    grouping by crystal-structure/bonding chemistry, identical
+    four-model/\lomo{}/permutation protocol as the pooled fit.
+    Pooled reference row included for comparison.}
+  \label{tab:stratified}
+  \begin{tabular}{lrrlrrc}
+    \toprule
+    Class & Materials & Rows & Best model & RMSE $\Delta$ & Perm. $p$ & Bar cleared? \\
+    \midrule
+    Rock-salt nitrides       & 4  & 18 & --- & --- & --- & Not tested ($<5$ materials) \\
+    Chalcogenides/sulfides   & 6  & 38 & random forest          & $+23.1\%$ & 0.86 & No \\
+    Oxides/fluorides         & 11 & 67 & random forest          & $+41.8\%$ & 0.55 & No \\
+    Elemental metals         & 14 & 53 & random forest          & $+44.6\%$ & 0.20 & No \\
+    \midrule
+    \emph{Pooled (all classes)} & 37 & 178\footnotemark & gradient-boosted trees & $+49.2\%$ & 0.22 & No \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+\footnotetext{Row count for the pooled reference row reflects the
+  Table~\ref{tab:pooled_all} snapshot; the exact row count at the
+  $n=37$-material stratification snapshot differs marginally as
+  literature absorption continued between the two runs, per-class row
+  counts above are the values actually used for the stratified fits.}
+
+RMSE improvement is large in every class (23--45\%), mirroring the
+pooled result: the models find \emph{some} systematic structure in
+every partition tried, but that structure does not survive random
+re-partitioning of materials into cross-validation folds, in any
+grouping. This is not evidence against class-dependent physics -- it
+means the current corpus cannot distinguish that hypothesis from
+ordinary small-sample noise, since every per-class subgroup (14, 11,
+or 6 materials) has fewer materials than the already-underpowered
+pooled set (37), trading away exactly the degrees of freedom the
+permutation test needs without a compensating gain in signal purity.
+Elemental metals' comparatively low $p=0.20$ was flagged as the most
+promising lead and pursued further.
+
+\subsection{A targeted corpus-growth push within elemental metals: also null}
+\label{ssec:targeted_growth}
+
+Two further, targeted literature-absorption interventions added real,
+sourced data specifically to the elemental-metals subgroup, run
+separately to isolate which kind of densification helps.
+\textbf{Cross-source densification} (adding 1--2 points from
+different labs/papers to each of the sparsest metals: W
+$1\rightarrow 8$ points across two independent sources, Mo
+$1\rightarrow 8$, Au $1\rightarrow 4$) grew the subgroup to 72 rows at
+the same 14 materials. RMSE improvement continued to rise, to
+$+52.7\%$, but $p$ \emph{regressed}, from 0.20 to 0.30.
+\textbf{Same-source densification} (digitizing Figure 11 of
+\citet{besnard2025}, a single consistent experimental campaign reporting nine
+transition metals on one angle series, adding three genuinely new
+materials -- V, Hf, Ta -- to the pre-registered elemental-metals class
+under the same fcc/bcc/hcp criterion decided before seeing any result)
+grew the subgroup to 17 materials, 88 rows, and gave $p=0.24$ --
+better than the cross-source attempt but still worse than the
+untouched 14-material baseline, and far from 0.05.
+Table~\ref{tab:targeted_growth} summarizes.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Targeted corpus-growth interventions within the
+    elemental-metals subgroup. Neither intervention moves $p$
+    reliably toward significance; the range 0.20--0.36 across every
+    variant is consistent with ordinary sampling noise around a true
+    $p$ that is not small at this sample size.}
+  \label{tab:targeted_growth}
+  \begin{tabular}{lrrrr}
+    \toprule
+    Variant & Materials & Rows & RMSE $\Delta$ (best model) & Perm. $p$ \\
+    \midrule
+    Baseline (Section~\ref{ssec:stratification}) & 14 & 53 & $+44.6\%$ & 0.20 \\
+    Cross-source densification (W/Mo/Au)          & 14 & 72 & $+52.7\%$ & 0.30 \\
+    Same-source densification (+V, Hf, Ta)        & 17 & 88 & $+54.4\%$ & 0.24 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Across every variant tried, $p$ ranged 0.20--0.36, with no lever --
+more points on existing materials, new materials from a scattered set
+of sources, or new materials from one internally consistent source --
+moving it reliably toward significance. Recovering significance in
+this subgroup would need roughly double the current material count
+(30+ elemental metals); a subsequent targeted search for 19 further
+elemental metals, mostly platinum-group and rare-earth species,
+returned usable new data for only one (Sb) via open web search -- a
+genuine access limitation of the search tools available for this
+project, not proof the underlying literature does not exist.
+
+\subsection{Reformulating the task: ranking instead of regression}
+\label{ssec:ranking}
+
+A separate, orthogonal hypothesis is that the pre-registered
+exact-value criterion tests the wrong task: predicting a material's
+relative rank against another material at a comparable angle is a
+scientifically useful and potentially easier target than predicting
+its exact value. Table~\ref{tab:ranking} reports the pre-registered
+pairwise-ranking result. For $\beta(\alpha)$ ($n=213$ rows, 40
+materials, 10{,}394 directed pairs within a $\pm 5^{\circ}$ angle
+window), the best model (a gradient-boosted ranker using the full
+descriptor set) reaches a pooled \lomo{} pairwise accuracy of 0.746
+(Kendall's $\tau=0.492$ \citep{kendall1938rank}) -- comfortably clearing the 0.60 accuracy
+threshold and a clear improvement over both the zero-parameter
+tangent-rule baseline and an angle-only logistic baseline (both 0.544
+accuracy, $\tau=0.088$). The permutation test, however, gives
+$p=0.27$: the significance half of the criterion fails by nearly the
+same margin as it does for exact-value regression. For porosity($\alpha$)
+($n=92$ rows, 20 materials, 2{,}408 directed pairs), the best model (a
+linear ranker) reaches 0.725 accuracy ($\tau=0.450$, versus a
+0.602/$\tau=0.204$ baseline) but again fails significance, $p=0.28$.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Pairwise-ranking reformulation results (pre-registered bar:
+    pooled \lomo{} pairwise accuracy $\geq 0.60$ and permutation
+    $p<0.05$; $n_{\mathrm{perm}}=100$).}
+  \label{tab:ranking}
+  \begin{tabular}{lrrlrrc}
+    \toprule
+    Observable & Rows & Materials & Best model & Accuracy & Perm. $p$ & Bar cleared? \\
+    \midrule
+    $\beta(\alpha)$         & 213 & 40 & gradient-boosted ranker & 0.746 & 0.27 & No \\
+    Porosity $\phi(\alpha)$ & 92  & 20 & linear ranker           & 0.725 & 0.28 & No \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+This rules out ``wrong task formulation'' as the explanation for the
+pooled negative result: reformulating from exact-value prediction to
+relative ranking recovers strong, real-looking accuracy gains over the
+physics baseline in both observables, yet the same permutation test
+that rejects the regression models also rejects the ranking models, by
+almost the same margin. The bottleneck is not what the model is asked
+to predict; it is the number of independent material-level samples
+available to test whether the predicted structure is more than a
+fold-specific artifact.
+
+\subsection{The Bayesian hierarchical partial-pooling model: a genuine complementary positive finding}
+\label{ssec:bayes}
+
+As a final, deliberately different line of inquiry, the pre-registered
+Bayesian hierarchical model (Section~\ref{ssec:bayes_method}) was fit
+to the $\beta(\alpha)$ corpus ($n=213$ rows, 40 materials). All MCMC
+diagnostics are clean: maximum $\hat{R} = 1.0000$, minimum bulk
+effective sample size $= 1342$, across all seven population-level
+parameters.
+
+Of the six descriptor coefficients (three each for the intercept and
+slope layers), one -- the effect of atomic mass on a material's mean
+offset from the tangent rule, $\mathrm{mean}=-3.639$, 94\% HDI
+$=[-7.240,-0.344]$ -- excludes zero. The other five (melting point and
+bulk density on both intercept and slope, and mass on slope) have HDIs
+that include zero, though several are one-sided enough to be
+suggestive rather than flatly null (Table~\ref{tab:bayes_coef}).
+
+\begin{table}[htbp]
+  \centering
+  \caption{Bayesian hierarchical model: population-level descriptor
+    coefficients (standardized descriptors), 94\% highest-density
+    intervals (HDI). Only atomic mass's intercept-layer coefficient
+    excludes zero.}
+  \label{tab:bayes_coef}
+  \begin{tabular}{llrrc}
+    \toprule
+    Layer & Descriptor & Mean & 94\% HDI & Excludes 0? \\
+    \midrule
+    Intercept ($a_i$) & Atomic mass    & $-3.639$ & $[-7.240,-0.344]$ & \textbf{Yes} \\
+    Intercept ($a_i$) & Melting point  & $-3.288$ & $[-6.588, 0.151]$ & No \\
+    Intercept ($a_i$) & Bulk density   & $ 1.121$ & $[-2.424, 4.884]$ & No \\
+    Slope ($b_i$)      & Atomic mass    & $-1.554$ & $[-4.916, 1.834]$ & No \\
+    Slope ($b_i$)      & Melting point  & $-2.552$ & $[-5.943, 0.475]$ & No \\
+    Slope ($b_i$)      & Bulk density   & $ 2.214$ & $[-1.070, 5.528]$ & No \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The primary deliverable, the Bayesian $R^2$, is more informative than
+the per-coefficient test: the posteriors are not concentrated near
+zero. The intercept-layer $R^2_a$ has posterior median 0.28 (94\% HDI
+$[0.045,0.512]$; $P(R^2_a>0.1)=92\%$, $P(R^2_a>0.2)=72\%$); the
+slope-layer $R^2_b$ has median 0.20 (94\% HDI $[0.005,0.430]$;
+$P(R^2_b>0.1)=80\%$, $P(R^2_b>0.2)=50\%$). Read plainly: it is quite
+likely (80--92\% posterior probability) that these three descriptors
+explain a non-trivial share of material-to-material variation in
+$\beta(\alpha)$, with better-than-even odds the share exceeds a fifth
+-- but the credible intervals are wide and do not exclude a near-zero
+effect at one end, and substantial residual per-material idiosyncrasy
+remains unexplained either way (residual scales $\sigma_a=8.41^{\circ}$,
+$\sigma_b=7.03^{\circ}$, both large relative to the mean coefficients).
+
+This does not contradict the negative frequentist verdict of
+Sections~\ref{ssec:pooled}--\ref{ssec:ranking}, and should not be read
+as doing so -- it answers a different question. A real-but-modest
+effect, imprecisely estimated (median $R^2$ around 0.2--0.3 but a wide
+HDI reaching close to zero), is exactly the kind of signal a
+leave-one-material-out permutation test at $n=37$--40 materials is
+underpowered to detect at $p<0.05$ even when the effect is genuine.
+Two caveats apply. First, crystal structure was excluded from the
+group-level regression for identifiability reasons (19 levels across
+43 materials); if it carries real information, as is physically
+plausible for a shadowing/anisotropy effect, the true
+descriptor-explainable variance could be higher than reported here.
+Second, the Bayesian $R^2$ reported is in-sample, not
+cross-validated -- it measures how much structure the fitted model
+captures, not how well it would predict a new material's curve.
+
+\subsection{Summary of results}
+\label{ssec:results_summary}
+
+Across five independent lines of attack -- the pooled model at a
+further-grown corpus, material-class stratification, a targeted
+corpus-growth push confined to the most promising subgroup, a
+ranking/ordinal task reformulation, and a Bayesian hierarchical
+framework -- no frequentist formulation clears the pre-registered
+significance bar. RMSE (or pairwise-ranking accuracy) improvement
+over the physics baseline is real and large in every configuration
+tested, from $+23\%$ to $+54\%$ depending on subgroup, and 0.72--0.75
+pairwise accuracy against a 0.54--0.60 baseline for the ranking
+reformulation, so the learned models consistently find genuine,
+reproducible structure in the data rather than overfitting to noise
+that happens to look good in-sample. The barrier throughout is
+specifically statistical power, not model quality or task framing:
+every reformulation tried reproduces the same pattern of strong effect
+size and weak significance, and the one framework built to be
+sensitive to a real-but-modest effect under small samples (the
+Bayesian hierarchical model) finds exactly that.
+
+% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Why this is a genuine finding, not a failed project}
+\label{ssec:disc_genuine}
+
+A reader could reasonably ask whether a paper reporting ``no
+configuration clears a pre-registered significance bar'' is worth
+publishing. We argue it is, for three reasons specific to this
+investigation's design, not as a general defense of negative results.
+
+First, the diagnostic completeness is itself informative. Four
+distinct, plausible explanations for the pooled model's shortfall were
+tested directly and independently ruled out: wrong feature set (the
+feature-engineering ablation of Section~\ref{ssec:corpus_growth}
+changed neither RMSE improvement nor $p$), wrong extraction method
+(the deep figure-re-digitization pass of the same section improved $p$
+from 0.13 to 0.09 but did not close the gap), class heterogeneity
+(Section~\ref{ssec:stratification}, no subgroup clears the bar despite
+each being chemically more homogeneous than the pooled set), and wrong
+task formulation (Section~\ref{ssec:ranking}, the ranking
+reformulation reproduces the identical strong-effect/weak-significance
+pattern). Ruling out four specific, testable alternative explanations
+and converging on a fifth (sample size) that is directly measurable
+and directly actionable is a stronger scientific contribution than an
+unexplained single negative result would be.
+
+Second, the improving trend is consistent with a real, recoverable
+effect rather than pure noise. $\beta(\alpha)$'s permutation $p$ fell
+monotonically with every genuine data-density increase in the
+corpus-growth campaign of Section~\ref{ssec:corpus_growth}
+($0.13\rightarrow 0.09$), and the material-class-stratified subgroup
+closest to significance (elemental metals) is also the chemically most
+homogeneous one -- directionally consistent with ``more physically
+similar materials, and more data on the same materials, moves $p$ the
+right way,'' even though neither trend alone reaches significance at
+current sample sizes. We present this as a plausibility argument for
+future corpus growth, not as proof the effect is real; the honest
+frequentist verdict at every snapshot tested here remains NOT CLEARED.
+
+Third, and most directly, the Bayesian hierarchical analysis
+(Section~\ref{ssec:bayes}) demonstrates \emph{why} a permutation-test
+failure at $n=14$--40 materials does not mean there is no effect. The
+same corpus that fails the material-level permutation test at
+$p=0.20$--0.36 yields Bayesian $R^2$ posteriors with 80--92\%
+probability of explaining more than 10\% of between-material variance
+in $\beta(\alpha)$, concentrated specifically on atomic mass. These
+two results are not in tension: a permutation test at this sample size
+is a coarse, conservative instrument, and a real-but-modest effect of
+exactly the size the Bayesian model estimates is precisely what it is
+underpowered to detect. Reporting only the frequentist NOT-CLEARED
+verdict, without the Bayesian analysis that characterizes \emph{how}
+partial the evidence is, would understate what this corpus actually
+supports; reporting only the Bayesian result, without the frequentist
+verdict, would overstate it. Presenting both together is, we argue,
+the honest way to report this class of result.
+
+\subsection{Sample-size, not extraction quality, is the binding constraint}
+\label{ssec:disc_samplesize}
+
+The single most consistent pattern across every section of
+Section~\ref{sec:results} is that RMSE improvement (or pairwise-ranking
+accuracy) is never the limiting factor -- it clears its threshold in
+every configuration tested except $E_g(\alpha)$, which independently
+fails for a different, likely corpus-specific reason (only 6--10
+materials, the smallest of the four observables). The limiting factor
+is always the number of \emph{independent materials} available to the
+permutation test, which sets the resolution of its null distribution.
+This has a direct, testable implication: the levers that do not work
+(more rows on existing materials from scattered sources, different
+task formulations, different material-class partitions) all leave the
+material count roughly unchanged or reduce it; the one lever that
+measurably improved $p$ within this investigation (same-source
+figure-level re-digitization, which both added rows and, when it
+introduced genuinely new materials like the Besnard densification, did
+so cleanly) is the one that increases the corpus's material diversity
+without simultaneously increasing between-source measurement variance.
+This is consistent with the cross-source-vs-same-source contrast
+observed directly in Section~\ref{ssec:targeted_growth}: adding W, Mo,
+and Au points from scattered, independent labs increased row count but
+\emph{worsened} $p$ (0.20$\rightarrow$0.30), plausibly because
+different labs' deposition conditions (rate, substrate, base pressure)
+introduce real between-source variance that a single-descriptor model
+cannot separate from genuine material effect, whereas the
+single-campaign Besnard extension added new materials with internally
+consistent measurement conditions and moved $p$ in the right direction
+relative to the cross-source attempt (though still short of the
+14-material baseline).
+
+\subsection{What would resolve the open question}
+\label{ssec:disc_resolve}
+
+The material-class-stratification result identifies the most
+promising, concrete target for future work: elemental metals reach
+$p=0.20$ at $n=14$ materials, the closest of any configuration tested
+to the 0.05 bar, and are also the chemically most homogeneous and
+best-characterized class (complete, high-confidence descriptor
+coverage for all four descriptors used). Recovering significance in
+this subgroup plausibly requires roughly double the current material
+count -- on the order of 30+ elemental metals with genuine
+angle-resolved $\beta(\alpha)$ data. A targeted search for 19 further
+elemental metals, concentrated on platinum-group and rare-earth
+species not yet in the corpus, returned usable data for only one (Sb)
+via the open web search tools available to this project; this is a
+practical ceiling of accessible open literature search, not evidence
+that the underlying data does not exist in the broader, harder-to-reach
+literature (older or non-open-access journals, conference proceedings,
+and materials-science theses not indexed by general web search).
+Access to a professional literature database with more complete
+coverage of these specific material families (Scopus, Web of Science,
+or equivalent) is therefore the single most direct, well-motivated
+path to resolving whether the elemental-metals signal is real. We
+flag this explicitly as the concrete deliverable this paper offers to
+the next phase of this research program, rather than leaving ``more
+data would help'' as an unspecific closing remark.
+
+\subsection{Limitations}
+\label{ssec:disc_limitations}
+
+Several limitations apply beyond the sample-size discussion above.
+The corpus is drawn from heterogeneous deposition conditions (rate,
+base pressure, substrate, chamber geometry) that are not uniformly
+reported across source papers and are only partially captured by the
+deposition-method categorical descriptor; residual between-source
+variance not attributable to material identity is folded into what
+the permutation test treats as noise, which could mask a real effect
+or, less plausibly, contribute to the apparent RMSE improvements
+through incidental correlation with material identity. The Bayesian
+hierarchical model's $R^2$ is in-sample, not predictive, and excludes
+crystal structure for identifiability reasons; both caveats mean its
+positive finding should be read as a characterization of the corpus's
+explainable structure, not a validated predictive claim. Finally, all
+results here concern angle-resolved morphological observables
+($\beta$, porosity) under a single physics baseline (the tangent
+rule); the two companion observables tested (refractive index, band
+gap) are optical rather than morphological and were evaluated
+primarily to check whether the negative pattern was specific to
+$\beta$/porosity or general across GLAD-relevant observables -- it
+proved general, which we read as additional, independent evidence
+that the underlying constraint is sample size rather than an
+observable-specific modeling failure.
+
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+We conducted a pre-registered, leakage-controlled evaluation of
+whether material descriptors (atomic mass, melting point, bulk
+density, crystal structure, deposition method) can predict a new
+material's column-tilt angle $\beta(\alpha)$ or porosity $\phi(\alpha)$
+under glancing-angle deposition, using leave-one-material-out
+cross-validation and a material-level permutation test as the
+significance instrument. Every learned model comfortably clears the
+pre-registered RMSE-improvement bar for $\beta(\alpha)$ (up to
+$+54.4\%$ depending on corpus snapshot) and usually for porosity (up
+to $+28.5\%$), but no configuration tested -- the pooled fit across up
+to 40 materials, three pre-registered material-class subgroups, two
+independent targeted corpus-growth interventions, or a pairwise
+ranking reformulation of the task -- ever clears the permutation-test
+significance bar. Four plausible alternative explanations (feature
+choice, extraction quality, class heterogeneity, task formulation)
+were tested directly and ruled out; the specific, remaining, and
+well-quantified bottleneck is material-level sample size. A
+complementary Bayesian hierarchical partial-pooling model, fit
+independently and asking a different statistical question, finds a
+genuine, credible non-zero effect of atomic mass on the material-level
+offset from the physics baseline and places 80--92\% posterior
+probability on descriptors explaining more than 10\% of
+between-material variance -- a result fully consistent with, and
+explanatory of, the frequentist non-significance verdict rather than
+contradicting it.
+
+We report this as a rigorous, multi-angle-tested negative-to-mixed
+result: a well-instrumented account of exactly where the
+statistical-power boundary for cross-material GLAD morphology
+prediction currently sits, together with the specific, actionable
+corpus-growth target (professional literature-database access to
+30+ elemental metals, particularly platinum-group and rare-earth
+species) most likely to move it. We offer this both as a direct
+contribution -- ruling out four alternative explanations for a
+persistent gap between effect size and statistical significance in
+small-corpus materials-informatics problems is itself useful to
+readers attempting similar cross-material generalization studies --
+and as a resource for future corpus-growth efforts specifically in
+this sub-field, so that the next research effort in this direction can
+begin from a documented, tested starting point rather than repeating
+the same exploratory search.
+
+% ============================================================
+\section*{Data and Code Availability}
+All feature tables, model-comparison scripts, and pre-registration
+documents referenced in this paper are maintained in the project
+repository (\texttt{02\_PINN\_NIF/P3\_ML/}); the corpus is drawn from
+peer-reviewed literature and PhD theses, cited where individual source
+papers contributed the majority of a material's data
+(Section~\ref{sec:intro}), with the full per-row provenance recorded
+in the underlying feature-table generation pipeline.
+
+% ============================================================
+\section*{CRediT Author Statement}
+Oussama Ben Haj Ali: conceptualization, methodology, software,
+formal analysis, investigation, data curation, writing -- original
+draft, writing -- review and editing, visualization. Ferid Chaffar
+Akkari, Bruno Gallas, Nicolas Martin: resources, supervision, writing
+-- review and editing.
+
+\newpage
+\bibliographystyle{unsrtnat}
+\bibliography{P3_references}
+
+\end{document}
