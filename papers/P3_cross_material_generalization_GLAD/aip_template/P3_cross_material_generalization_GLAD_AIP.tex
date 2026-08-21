@@ -10,13 +10,17 @@
 %  Key results (all numbers traced to 02_PINN_NIF/P3_ML/*.md,
 %  none recomputed for this draft):
 %    - Pooled LOMO-CV cross-material model for column-tilt beta(alpha),
-%      n=231 rows / 43 materials (grown 2026-08-20: Ta2O5 beta series,
-%      TiN second-source rows): gradient-boosted trees +49.7% RMSE
-%      vs. tangent-rule physics baseline, permutation p=0.20 (n_perm=100).
-%      RMSE bar cleared, significance bar NOT cleared.
-%    - Porosity(alpha), n=104/22 (grown 2026-08-20: Nb2O5 packing-density
-%      series): Gaussian process +18.8% RMSE vs naive-mean baseline,
-%      p=0.32. NOT cleared.
+%      n=250 rows / 46 materials (grown 2026-08-20/21, second round: CeO2
+%      and LaF3 new materials, plus new-source rows for ZnS/SnS/TiO2/CdTe):
+%      gradient-boosted trees +50.0% RMSE vs. tangent-rule physics
+%      baseline, permutation p=0.10 (n_perm=100). RMSE bar cleared,
+%      significance bar NOT cleared -- but this is the closest the pooled
+%      beta(alpha) fit has come to significance across ~11 corpus-growth
+%      rounds (was p=0.20, then p=0.22 before that).
+%    - Porosity(alpha), n=108/24 (same round: new porosity rows folded in
+%      alongside the beta growth): Gaussian process +20.7% RMSE vs
+%      naive-mean baseline, p=0.12. NOT cleared, also the closest yet
+%      (was p=0.32, then p=0.36 before that).
 %    - refractive_index(alpha), n=78/13: GP +16.2%, p=0.54. NOT cleared.
 %    - band_gap Eg(alpha), n=67/10: no model beats naive-mean baseline.
 %      NOT cleared (fails RMSE bar too).
@@ -272,7 +276,22 @@ not a new one), and one new elemental metal, Pd \citep{kim2005pd}
 ($\beta=62^{\circ}$ at $\alpha=85^{\circ}$, a single data point
 flagged and treated the same way as the existing single-point Sb
 entry, not yet incorporated into the elemental-metals
-class-stratified fit of Section~\ref{ssec:stratification}).
+class-stratified fit of Section~\ref{ssec:stratification}). A second
+growth round, folded in immediately afterward (2026-08-20/21) from a
+larger literature batch, added two further new materials -- CeO$_2$
+\citep{hodgkinson1996}, with a six-point column-tilt series
+(0--45$^{\circ}$) that is non-monotonic and disagrees markedly with
+the tangent-rule prediction over the same range, and LaF$_3$
+\citep{liu2007} -- plus new-source or new-observable rows for
+existing materials: a TiO$_2$ band-gap series \citep{pandey2022}
+(TiO$_2$'s first $E_g$ entry), CdTe column-tilt and band-gap rows
+from a second source \citep{ehsani2013}, ZnS and MgF$_2$ endpoint
+rows for porosity and refractive index \citep{oh2020}, a third ZnS
+column-tilt/band-gap source \citep{ashrafi2018}, and SnS refractive
+index and band-gap rows \citep{sazideh2017,sazideh2018} (SnS
+previously had only column-tilt and porosity coverage). All pooled
+and per-observable results in Section~\ref{sec:results} are computed
+on the corpus snapshot after both growth rounds.
 
 \begin{table}[htbp]
   \centering
@@ -470,23 +489,28 @@ cross-validated one (how well it would predict a new material).
 \label{ssec:pooled}
 
 Table~\ref{tab:pooled_all} summarizes the best-model \lomo{} result
-for all four target observables at the post-comprehensive-audit corpus
-snapshot ($\beta(\alpha)$: $n=231$ rows/43 materials;
-porosity($\alpha$): $n=104/22$; refractive index: $n=78/13$; $E_g$:
+for all four target observables at the latest corpus snapshot
+($\beta(\alpha)$: $n=250$ rows/46 materials;
+porosity($\alpha$): $n=108/24$; refractive index: $n=78/13$; $E_g$:
 $n=67/10$). For $\beta(\alpha)$, the tangent-rule baseline achieves a
-\lomo{} RMSE of 26.368$^{\circ}$; every learned model outperforms it,
-with gradient-boosted trees the best performer at 13.255$^{\circ}$
-($+49.7\%$). This comfortably clears the pre-registered 15\% RMSE bar.
-The material-level permutation test, however, returns $p=0.20$
-($n_{\mathrm{perm}}=100$), far from the 0.05 significance threshold.
-For porosity($\alpha$), Gaussian process reaches $+18.8\%$ RMSE
-improvement over the naive-mean baseline (25.081 vs. 30.893,
+\lomo{} RMSE of 25.522$^{\circ}$; every learned model outperforms it,
+with gradient-boosted trees the best performer at 12.773$^{\circ}$
+($+50.0\%$). This comfortably clears the pre-registered 15\% RMSE bar.
+The material-level permutation test, however, returns $p=0.10$
+($n_{\mathrm{perm}}=100$), still short of the 0.05 significance
+threshold -- but the closest the pooled $\beta(\alpha)$ fit has come
+to significance across roughly eleven independent corpus-growth
+rounds (was $p=0.20$, then $p=0.22$ one round earlier).
+For porosity($\alpha$), Gaussian process reaches $+20.7\%$ RMSE
+improvement over the naive-mean baseline (24.315 vs. 30.667,
 porosity in percentage points) -- clearing the RMSE bar -- with
-permutation $p=0.32$. One of the five porosity candidates, linear
-regression, underperforms the baseline outright ($-26.8\%$); the
+permutation $p=0.12$, likewise the closest this fit has come to
+significance (was $p=0.32$, then $p=0.36$). One of the five porosity
+candidates, linear
+regression, underperforms the baseline outright ($-24.9\%$); the
 remaining three learned models cluster closely together and all
-clear the RMSE bar (Gaussian process $+18.8\%$, the best performer;
-gradient-boosted trees $+17.9\%$; random forest $+18.4\%$),
+clear the RMSE bar (Gaussian process $+20.7\%$, the best performer;
+random forest $+19.5\%$; gradient-boosted trees $+18.8\%$),
 underscoring that the RMSE improvement Gaussian process achieves is a
 genuine, model-class-independent effect and not an artifact of a
 single weak comparator.
@@ -509,8 +533,8 @@ than baseline; the naive-mean baseline itself remains the best
     \toprule
     Observable & Rows & Materials & Best model & RMSE $\Delta$ & Perm. $p$ & Bar cleared? \\
     \midrule
-    $\beta(\alpha)$          & 231 & 43 & gradient-boosted trees & $+49.7\%$ & 0.20 & No \\
-    Porosity $\phi(\alpha)$  & 104 & 22 & Gaussian process       & $+18.8\%$ & 0.32 & No \\
+    $\beta(\alpha)$          & 250 & 46 & gradient-boosted trees & $+50.0\%$ & 0.10 & No \\
+    Porosity $\phi(\alpha)$  & 108 & 24 & Gaussian process       & $+20.7\%$ & 0.12 & No \\
     $n(\alpha)$              & 78  & 13 & Gaussian process       & $+16.2\%$ & 0.54 & No \\
     $E_g(\alpha)$            & 67  & 10 & naive-mean baseline    & $+0.0\%$  & n/a  & No \\
     \bottomrule
@@ -759,11 +783,17 @@ available in this dataset. The combined statistic is
 $X^2=3.71$, $df=6$, $p=0.715$: \textbf{not cleared}. A secondary,
 explicitly exploratory combination pools the three pooled
 observable-level tests that individually cleared the RMSE bar --
-$\beta(\alpha)$ ($p=0.20$), porosity($\alpha$) ($p=0.32$), and
-$n(\alpha)$ ($p=0.54$) -- for which the independence assumption is
-only approximate (materials and source papers overlap across
-observable corpora); this gives $X^2=6.73$, $df=6$, $p=0.347$, also
-not cleared.
+$\beta(\alpha)$ ($p=0.10$, updated 2026-08-20/21 after the second
+same-day corpus-growth round, Section~\ref{ssec:pooled}),
+porosity($\alpha$) ($p=0.12$, same update), and
+$n(\alpha)$ ($p=0.54$, unchanged) -- for which the independence
+assumption is only approximate (materials and source papers overlap
+across observable corpora); this gives $X^2=10.08$, $df=6$,
+$p=0.121$ (recomputed by hand as $X^2=-2\sum\ln p_i =
+-2(\ln 0.10+\ln 0.12+\ln 0.54)=10.078$, cross-checked against
+\texttt{scipy.stats.combine\_pvalues(method=`fisher')}; was
+$X^2=6.73$, $p=0.347$ one round earlier), also not cleared but
+markedly closer than either prior snapshot of this combination.
 
 Fisher's method is most sensitive when several individual p-values
 cluster in a moderately small range (roughly 0.03--0.15) without any
