@@ -435,6 +435,23 @@ resolution) and normalised by the maximum bin count,
 yielding a density field $\rho_{\rm vox}(\mathbf{r}) \in [0,1]$.
 This max-normalised bead-count histogram encodes the local
 occupation density relative to the densest voxel in the film.
+Density and occupancy, rather than column-fanning or pitch descriptors,
+are used as the surrogate targets throughout this paper because a
+dedicated single-condition ablation ($\alpha=85^{\circ}$, seed~0,
+$300\to\SI{700}{nm}$, eight height stages) found that switching on a
+basic, uncalibrated-mobility surface-diffusion step changes the atom
+density ratio by only $0.9995$--$1.0021$ relative to the diffusion-off
+baseline and leaves the fanning, helical-pitch, and column-centreline
+descriptors statistically indistinguishable from the diffusion-off case
+at every height (the same watershed descriptor separately recovers
+$p\approx0.28$--$0.34$ on a synthetic separated-column control, so the
+null result reflects the simulator's fused morphology rather than a
+broken descriptor). Within this reduced-order model, fanning is
+therefore not a robust learning target at the angles and heights used
+here, while density and occupancy are well-defined and change smoothly
+with $\ang$; this motivates the choice of surrogate target below and
+is not a claim that surface diffusion is irrelevant to copper GLAD in
+general.
 A follow-up extension used exclusively by the partial-realization-conditioning test
 (Section~\ref{ssec:disc_tier2}) added five further realizations at $\ang=85^{\circ}$
 (seeds 3--7, identical protocol), bringing that angle to $n=8$; all other experiments
