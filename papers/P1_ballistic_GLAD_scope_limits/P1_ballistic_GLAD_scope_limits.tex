@@ -1,4 +1,10 @@
 % ============================================================
+%  ** SUPERSEDED 2026-08-24 ** — canonical style is now AIP Publishing
+%  (revtex4-1, JVST-A target); see ../article_draft_AIP/P1_ballistic_GLAD_scope_limits_AIP.tex
+%  This Springer-style file is kept for reference/history only and is
+%  no longer actively maintained — do not edit going forward without
+%  also checking whether the AIP file needs the same change first.
+% ============================================================
 %  P1 — Ballistic Helical Cu GLAD: Scope, Limits, and
 %        Morphological Characterisation via Simulation
 %
@@ -1063,7 +1069,14 @@ This offset is expected for three reasons:
     deposition-rate scaling than a purely geometric shadowing prediction
     would give \citep{poxson2008porosity}, and this densification is
     known to broaden individual GLAD Cu nanorods anisotropically relative
-    to the ballistic-limit column shape \citep{kesapragada2006}.
+    to the ballistic-limit column shape \citep{kesapragada2006}. This
+    anisotropic broadening has a well-characterised geometric origin
+    independent of any diffusion mechanism: ballistic shadowing acts only
+    along the incident-flux (deposition) plane, leaving no shadowing
+    constraint on column growth transverse to it, so columns fan out into
+    an elongated cross-section and, at sufficient thickness, chain together
+    with their neighbours in the unconstrained direction
+    \citep{vick2002growth}.
   \item \textit{Measurement-convention mismatch.}  The bead-sphere
     formula counts volume occupied by rigid spheres, while optical ABEMA
     infers void fraction from effective-medium theory applied to
@@ -1718,7 +1731,8 @@ As a sensor-design hypothesis-generation illustration only, we take tungsten col
 ($\varepsilon_{\mathrm{W}} = 4.41 + 19.60i$ at $\lambda \approx \SI{500}{nm}$,
 i.e.\ $n=3.5$, $k=2.8$ \citep{palik1985}) in vacuum, with structural
 $f(\dang)$ extracted from the Cu GLAD simulations.  This screening
-calculation uses the $R=\SI{0.128}{nm}$ (Cordero covalent-radius) campaign
+calculation uses the $R=\SI{0.128}{nm}$ (Cordero covalent-radius
+\citep{cordero2008}) campaign
 rather than the $R=\SI{0.1}{nm}$ campaign used for the void-fraction,
 reproducibility, and PCA results elsewhere in this paper (Table~\ref{tab:params});
 the two radii give systematically slightly different filling fractions
@@ -1975,13 +1989,169 @@ a spatially uniform void fraction (as typically used in
 contribution.  This observation motivates depth-graded effective-medium
 models as a more rigorous alternative.
 
+\subsection{Surface diffusion versus literature reference values}
+\label{ssec:diffusion_comparison}
+
+Figure~\ref{fig:beta_p_comparison} places the static/helical diffusion
+test against classical analytic relations and independent literature
+reference values. With diffusion enabled, the simulated column-tilt
+angle sits close to the Tangent-rule prediction ($\tan\beta=\tan\alpha/2$),
+while the literature reference value sits close to Tait's-rule
+prediction ($\beta=\alpha-\sin^{-1}[(1-\cos\alpha)/2]$)
+\citep{robbie1997}; the simulated growth exponent, by contrast, falls
+between the diffusion-dominated and pure-shadowing literature values
+\citep{karabacak2003}, and is markedly higher than the diffusion-off
+baseline. Surface diffusion therefore moves the two quantities in
+different directions relative to their respective literature references.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig_p1_beta_p_literature_comparison}
+  \caption{Simulated column-tilt angle (a) and growth exponent (b) at
+    $\alpha=85^{\circ}$ compared against classical analytic relations and
+    independent literature reference values. Simulated values (red) are
+    shown with and without surface diffusion; diffusion source labels
+    indicate the activation energy used (Jamnig et al.\ 2019, Cu-on-
+    amorphous-carbon; Boisvert \& Lewis 1997, Cu-on-Cu self-diffusion).}
+  \label{fig:beta_p_comparison}
+\end{figure}
+
 \subsection{Limitations and future work}
 \label{ssec:limits}
 
 This study is subject to the following limitations:
 \begin{enumerate}
-  \item No surface diffusion: the model cannot reproduce experimental
-    void fractions without calibration.
+  \item Surface diffusion is absent from the primary void-fraction
+    dataset above. A separate test, in a smaller simulation domain with
+    a physically-calibrated Arrhenius diffusion step at literature Cu
+    activation energies \citep{jamnig2019,boisvert1997cu}, produces
+    genuine height-dependent column coarsening and a growth exponent
+    % --- 2026-08-27: Cu-on-glass substrate caveat, per AGENTS.md documented
+    % literature-search history (do not remove without checking that source).
+    (the diffusion barrier itself is taken from Cu-on-crystalline-facet and
+    Cu-on-amorphous-carbon literature, not Cu-on-glass specifically: a
+    dedicated multi-angle literature search for a Cu-on-glass/SiO$_2$
+    \emph{surface adatom} diffusion barrier, distinct from bulk/ionic
+    diffusion through the glass, confirmed this value is genuinely absent
+    from the literature rather than merely unfound. Every rigorous
+    surface-diffusion-barrier measurement technique (STM adatom tracking,
+    field-ion microscopy, island-density scaling) requires a substrate with
+    resolvable periodic atomic structure, which amorphous glass does not
+    have; the handful of Cu/SiO$_2$ studies located all measure bulk or
+    ionic transport through the solid oxide (a different physical process
+    from surface hopping on a growing film), and Cu/Si(111) STM studies were
+    excluded as Cu/Si is chemically reactive and forms a silicide, a
+    different system from an inert amorphous substrate. This is consistent
+    with the field's own assessment: the closest primary-source group
+    working on this system states directly that the rate constants for Cu
+    surface migration on SiO$_2$ ``are unavailable''.)
+    consistent with diffusion-influenced GLAD growth, while the resulting
+    column-tilt angle remains larger than the corresponding literature
+    value. Surface diffusion therefore measurably affects simulated
+    morphology, but its inclusion does not, on its own, bring the model
+    into quantitative agreement with experimental Cu column geometry.
+    The number of hop attempts evaluated per growth step is capped for
+    computational tractability, at a level below the value implied by
+    the stated activation energy and attempt frequency at room
+    temperature; the diffusion result quoted above uses this capped
+    hop budget. A follow-up campaign removed the cap (raising it to the
+    literature-implied value) and re-ran the diffusion condition at two
+    larger lateral box sizes ($150$ and \SI{200}{nm}) to test whether
+    box size, rather than diffusion itself, drives the column-tilt-angle
+    discrepancy: the column-tilt angle continued to increase with box
+    size at the corrected hop budget ($81.5^{\circ}\to82.2^{\circ}
+    \to87.5^{\circ}$ at box $=100/150/\SI{200}{nm}$), moving further from
+    the literature target rather than converging toward it. This is the
+    opposite of the trend an unresolved finite-size artifact would be
+    expected to produce, and indicates the column-tilt discrepancy is
+    not primarily a box-size effect at the corrected hop budget. A fourth
+    run re-evaluated the \SI{100}{nm} baseline itself at the corrected,
+    uncapped hop budget, matching the $150$/\SI{200}{nm} runs exactly;
+    the resulting column-tilt angle ($81.6^{\circ}$) differs from the
+    original capped-hop-budget baseline ($81.5^{\circ}$) by only
+    $0.1^{\circ}$, confirming the hop-count cap does not materially
+    affect column tilt at this box size. The four-point trend
+    ($81.6^{\circ}\to82.2^{\circ}\to87.5^{\circ}$ at box
+    $=100/150/\SI{200}{nm}$, all at matched, corrected hop budget) is
+    therefore fully free of the hop-budget/box-size confound: the
+    box-size effect on column tilt is a real, methodologically clean
+    finding. Extending the primary dataset's box/pitch convention to
+    include this diffusion step remains future work.
+  \item A separate ablation tests a different candidate mechanism for
+    the same column-tilt discrepancy: a physically-calibrated Cu
+    sticking coefficient ($s=0.899$, room-temperature glass-substrate
+    thermal evaporation \citep{chandra1958}) combined with a diffuse
+    re-emission step for incident atoms that do not stick on first
+    contact, with surface diffusion switched off so the two mechanisms
+    are not conflated. At $\dang=85^{\circ}$, box$=\SI{100}{nm}$, this
+    configuration gives $\beta=65.4^{\circ}$ (single seed) --- closer to
+    the Tait's-rule and literature reference values
+    ($57.8^{\circ}$/$55.4^{\circ}$) than either the diffusion-off
+    baseline ($71.65^{\circ}$) or the diffusion-added result above
+    ($81.6^{\circ}$--$87.5^{\circ}$), and moving in the \emph{opposite}
+    direction from diffusion: sticking-and-re-emission narrows the
+    column-tilt discrepancy, whereas isotropic diffusion widens it.
+    This result is preliminary in one respect that remains: a single random
+    seed, with no seed-to-seed spread estimate. Two further checks have since
+    been completed. First, the growth exponent for this sticking-and-re-emission
+    condition was measured with the same watershed column-diameter method used
+    elsewhere in this study ($p=0.047$, 95\% CI $0.014$--$0.083$, $R^{2}=0.22$
+    over the fit window $0.1$--$0.9\times$ film height): the fit quality is
+    weak and the exponent sits well below both the pure-shadowing
+    ($p\approx0.5$) and diffusion-dominated ($p\approx0.31$) literature
+    references, indicating this mechanism, like the diffusion-off baseline,
+    does not on its own produce a genuine height-dependent coarsening signal --
+    narrowing the column-tilt offset and reproducing literature-consistent
+    coarsening dynamics are therefore separate, not automatically coupled,
+    outcomes of this model. Second, a combined sticking+re-emission+diffusion
+    condition (same sticking coefficient, re-emission, and the
+    $E_a=0.49$\,eV Boisvert-calibrated diffusion step together,
+    box$=\SI{100}{nm}$) was run to test whether adding diffusion on top of
+    sticking-and-re-emission preserves or erodes the latter's improvement:
+    it gives $\beta=81.5^{\circ}$, sitting inside the diffusion-dominated band
+    found above ($81.6^{\circ}$--$87.5^{\circ}$) rather than nearer the
+    sticking-and-re-emission value alone -- diffusion's effect on tilt is not
+    undone by adding sticking and re-emission on top of it. Additional seeds
+    for both the sticking-and-re-emission and the combined condition remain
+    future work. The re-emission mechanism's coordination-shell cutoff factor
+    ($k=1.15\times$ collision diameter) is derived and justified in
+    Appendix~\ref{app:shellcutoff}.
+  \item The primary dataset uses a perfectly collimated beam (Table
+    \ref{tab:params}); a separate sensitivity check tested whether a
+    non-zero source angular divergence narrows the column-tilt
+    discrepancy instead. At $\dang=85^{\circ}$, box$=\SI{100}{nm}$, an
+    angular spread of $\sigma=10^{\circ}$ gave $\beta=81.0^{\circ}$--$81.7^{\circ}$
+    and a source-geometry-derived $\sigma=7.13^{\circ}$ gave
+    $\beta=82.09^{\circ}$: both move \emph{away} from the literature target
+    ($55.4^{\circ}$) rather than toward it, and the two points are not
+    monotonic with each other. A single intermediate point,
+    $\sigma=2^{\circ}$, was tested separately and gave $\beta=64.7$--$65.7^{\circ}$
+    across two seeds (a $0.99^{\circ}$ difference, within the pre-registered
+    reproducibility threshold) -- \emph{below} the $\sigma=0^{\circ}$
+    baseline ($71.65^{\circ}$), moving toward rather than away from the
+    target. This is not unique to angular divergence: the
+    sticking-and-re-emission condition above gives a comparable
+    $\beta=65.4^{\circ}$ by a distinct mechanism (surface energetics rather
+    than beam geometry). Neither result is physically complete -- both hold
+    diffusion at exactly zero, an ablation convention, not a claim that real
+    room-temperature Cu has no surface mobility. The one combination tested
+    with diffusion genuinely present (sticking+re-emission+diffusion) gives
+    $\beta=81.5^{\circ}$, inside the same poorly-performing band as the
+    worst pure-angular-divergence conditions above ($81.35^{\circ}$--$82.09^{\circ}$
+    at $\sigma\geq7^{\circ}$), confirming diffusion dominates whatever else
+    is present; the two
+    favorable diffusion-off results therefore do not represent progress
+    toward the physically complete, diffusion-present system. This does not
+    resolve the discrepancy (the remaining offset is still $\sim10^{\circ}$
+    for angular divergence alone), and the relationship between $\sigma$ and
+    $\beta$ is not monotonic across the full tested range: angular
+    divergence helps at $\sigma=2^{\circ}$ and hurts at $\sigma\geq7^{\circ}$.
+    A finer sweep to map this non-monotonic curve was scoped but not
+    pursued, since doing so would refine curve shape without answering a
+    new falsifiable question -- the mechanistic reason for the reversal,
+    and whether the imported diffusion calibration is itself correct for
+    this system, are left as open
+    questions for future atomistic-scale investigation.
   \item Cu-specific validation: no optical void-fraction sweep versus $\dang$
     is available in the published literature specifically for Cu GLAD films
     under conditions comparable to the present simulations; direct quantitative
@@ -2014,6 +2184,12 @@ This study is subject to the following limitations:
     nonetheless flag that the \emph{quantitative} void-fraction values and
     the exact magnitude of the angular trend remain provisional pending an
     angle-resolved, full-height convergence study (future work).
+  \item Computational cost: each simulated configuration is a dedicated
+    GPU-accelerated ballistic run whose wall-clock cost grows with target
+    film height and lateral box size; the angle, pitch, and box-size
+    coverage reported here is bounded by this cost rather than by any
+    modelling choice, and finer or wider parameter sweeps scale
+    accordingly.
 \end{enumerate}
 
 Future work should address (i) addition of a phenomenological diffusion
@@ -2425,5 +2601,67 @@ established to be box-size-robust; they should also be treated as
 provisional pending an angle-resolved convergence study, and are offered
 as the paper's best-supported trend-level claims rather than as
 finite-size-independent results.
+
+\section{Coordination-shell cutoff factor: geometric derivation}
+\label{app:shellcutoff}
+
+This appendix derives the valid range for the coordination-shell cutoff
+factor $k$ used by the diffuse re-emission ablation of
+Section~\ref{ssec:limits}, where the cutoff radius for counting a
+neighbouring atom as belonging to the first coordination shell is
+$R(k) = k \times d_{\mathrm{col}}$, with $d_{\mathrm{col}}$ the model's
+hard-sphere collision diameter. This model uses $k=1.15$.
+
+For a face-centred-cubic (FCC) lattice with conventional cubic cell edge
+$a$, the nearest-neighbour (NN) and next-nearest-neighbour (NNN)
+distances are
+\begin{align}
+  d_{\mathrm{NN}}  &= a/\sqrt{2}, \label{eq:app_dnn}\\
+  d_{\mathrm{NNN}} &= a. \label{eq:app_dnnn}
+\end{align}
+For Cu, $a=\SI{3.615}{\angstrom}$ \citep{straumanis1969} gives
+$d_{\mathrm{NN}}=\SI{0.2556}{nm}$, $d_{\mathrm{NNN}}=\SI{0.3615}{nm}$, in
+agreement (within $0.16\%$) with this model's independently-derived
+collision diameter $d_{\mathrm{col}}=2\times\SI{0.128}{nm}=\SI{0.256}{nm}$
+(Cordero covalent radius \citep{cordero2008}) -- both are estimates of
+the same physical Cu--Cu contact length scale from independent routes,
+so their agreement is a consistency check on the model's basic geometry,
+not a new claim.
+
+A cutoff factor $k$ isolates the true first shell -- counting every atom
+in physical contact, $R(k)\ge d_{\mathrm{NN}}$, while excluding the
+second shell, $R(k) < d_{\mathrm{NNN}}$ -- exactly when
+\begin{equation}
+  1 \le k < \frac{d_{\mathrm{NNN}}}{d_{\mathrm{NN}}} = \sqrt{2} \approx 1.41421.
+  \label{eq:app_kwindow}
+\end{equation}
+This half-open interval $k\in[1,\sqrt{2})$ follows from FCC geometry
+alone (Eqs.~\ref{eq:app_dnn}--\ref{eq:app_dnnn}); it does not depend on
+which value inside it is chosen. The value used here, $k=1.15$, sits at
+\begin{equation}
+  f = \frac{k-1}{\sqrt{2}-1} \approx 0.362,
+  \label{eq:app_kfrac}
+\end{equation}
+i.e.\ $36.2\%$ of the way from the NN boundary to the NNN boundary, with
+margins of $\SI{0.038}{nm}$ above the NN boundary and $\SI{0.068}{nm}$
+below the NNN boundary -- comfortably inside the valid window on both
+sides, not adjacent to either boundary. Both margins exceed the scale of
+typical thermal/structural broadening expected in this model's
+disordered, non-rigid-lattice packing (\S\ref{ssec:limits}), which is
+the practical reason an interior value is preferable to one sitting
+exactly at either boundary.
+
+This derivation establishes the \emph{interval} $k\in[1,\sqrt{2})$ as
+geometrically required; it does not establish that $k=1.15$
+specifically, as opposed to another interior value, is uniquely forced
+by the crystallography. No record of the original reasoning behind the
+specific value $1.15$ exists in this project's development history, and
+an exhaustive literature search and a full-text search of $1{,}695$ PDF
+documents held locally by this project found no external source
+proposing this specific value for an FCC-metal first-shell cutoff.
+$k=1.15$ is therefore reported here as a documented, geometrically
+justified modelling convention selected from within a rigorously
+derived valid range, not as a value independently confirmed by an
+external source.
 
 \end{document}

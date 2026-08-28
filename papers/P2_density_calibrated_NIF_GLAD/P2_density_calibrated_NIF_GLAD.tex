@@ -1,4 +1,10 @@
 % ============================================================
+%  ** SUPERSEDED 2026-08-24 ** — canonical style is now AIP Publishing
+%  (revtex4-1, JVST-A target); see ../article_draft_AIP/P2_density_calibrated_NIF_GLAD_AIP.tex
+%  This file is kept for reference/history only and is no longer
+%  actively maintained — do not edit going forward without also
+%  checking whether the AIP file needs the same change first.
+% ============================================================
 %  P2 — Density-Calibrated Neural Implicit Field for
 %        Ballistic GLAD: From Scalar Porosity to Voxel
 %        Occupancy Prediction
@@ -991,10 +997,14 @@ and is the recommended approach for any downstream use of this
 quantity.
 
 \paragraph{Depth-density profile $\rho_z(z;\ang)$: shape generalises, absolute scale does not, with a real angle-dependent asymmetry.}
-Following up on the RNG-seeding gap identified above, all linear-layer
-weight initialisation was fixed to draw from the same seeded generator
-as the rest of the recipe (verified deterministic: repeat runs under
-an identical seed now reproduce bit-identical loss curves), and the
+A random-seed confound in this descriptor-reframing training script
+was identified and fixed: linear-layer weight initialisation was
+drawing from an unseeded generator, which had been swinging this
+particular result between clearly negative and clearly positive
+across otherwise-identical reruns. All linear-layer weight
+initialisation was fixed to draw from the same seeded generator as
+the rest of the recipe (verified deterministic: repeat runs under an
+identical seed now reproduce bit-identical loss curves). The
 held-out evaluation was repeated over ten independent, properly-seeded
 runs (seeds 101--110) on the same pre-registered $\{72,87\}^{\circ}$
 held-out split. The result is now stable and reproducible, and reveals
@@ -1071,9 +1081,10 @@ threshold $= \bar{y}_\alpha$):
   \centering
   \caption{%
     At every deposition angle, the soft-label model's best-case
-    voxel-occupancy prediction is statistically no better than
+    voxel-occupancy prediction is no better in practice than
     simply guessing the angle's average occupied fraction
-    everywhere -- it carries no usable spatial information.
+    everywhere ($\Delta\iou < 0.003$ throughout) -- it carries no
+    usable spatial information.
     Per-$\alpha$ best-threshold IoU comparison (soft-label model).
     $\bar{y}_\alpha$: ground-truth occupied fraction.
     $\iou_{\rm trivial}$: trivial-predictor IoU at optimal threshold.
@@ -1374,7 +1385,16 @@ Section~\ref{ssec:arch}) was intended to discourage exactly this
 failure mode and evidently did not succeed at the length scale
 needed here (training angles are spaced $1.25$--$2.5^{\circ}$ apart,
 an order of magnitude coarser than the $0.25^{\circ}$ smoothness
-window). The practical consequence for Objective~1 is that \nif{}~v5
+window). We tested the length-scale mismatch directly: retraining the
+identical recipe with the smoothness window widened to $1.5^{\circ}$
+(matched to the training-angle spacing) reaches comparable in-sample
+fit quality (mean $r=0.946$ across the seven trained angles, versus
+$0.984$ for the original $0.25^{\circ}$ window) but the held-out mean
+$r$ remains effectively zero ($r=0.006$ across the three held-out
+angles). A simple length-scale widening of this penalty is therefore
+not, on its own, a sufficient fix; the lookup-table behaviour persists
+even once the smoothness window is matched to the data's angular
+resolution. The practical consequence for Objective~1 is that \nif{}~v5
 should be read strictly as a per-angle field cache with a convenient
 shared architecture, not as an angle-continuous surrogate: it is
 useful for fast recall at the 7 simulated angles but cannot be relied
@@ -1917,6 +1937,13 @@ project documents.
     data inconsistency, but one that was not disclosed here and
     should not be conflated across documents without noting which
     $z$-range each value uses.
+  \item \textit{Computational cost of the underlying simulations.}
+    Generating each training configuration requires a dedicated
+    GPU-accelerated ballistic run; the number of angle/pitch/height
+    combinations that can be simulated, and hence the density and
+    coverage of the NIF training set, is bounded by this cost rather
+    than by any modelling choice; any future extension of the
+    parameter space inherits this same constraint.
 \end{enumerate}
 
 % ============================================================
