@@ -1835,6 +1835,30 @@ band-structure-specific optical response; the oxide-specific behaviour of
 Cu$_2$O/CuO$_x$ is instead addressed qualitatively via the direct literature
 comparison above.
 
+As a preliminary cross-check of this effective-medium screening's own
+accuracy, a full-wave finite-difference time-domain (FDTD) calculation
+\citep{oskooi2010meep} was run for the single-cylinder geometry at
+$\dang=65^{\circ}$ ($f=0.492$), extracting an effective index from a
+thin-slab (Born-approximation) field-ratio inversion. The extraction
+method was validated first against a case with a known answer (a uniform,
+lossless $\varepsilon=4$ slab), recovering $n=1.907+0.134i$ against the
+true $2.0+0i$ -- a residual consistent with the approximation's stated
+limitation of neglecting interface reflections, not a remaining error in
+the method. Applied to the same geometry and wavelength as the table
+above, the FDTD-extracted extraordinary index is $n_e = 2.144+2.513i$,
+compared to the Maxwell-Garnett value $n_e=2.518+1.914i$ at this row: a
+$-14.8\%$ difference in the real part and $+31.3\%$ in the imaginary
+part, both larger than the validation case's residual. This suggests the
+Maxwell-Garnett illustration's departure from a full-wave calculation may
+be non-negligible even at this single design wavelength, but the check
+is a single-cylinder, single-wavelength, single-polarisation pilot with
+interface reflections neglected in the extraction and no dispersion fit
+away from \SI{500}{nm} -- it should be read as indicative of a real gap,
+not as a validated correction to the table above. A rigorous replacement
+of this screening (multi-column geometry, both polarisations, a
+reflection-accounting retrieval, and a fitted material dispersion) is
+future work.
+
 % ============================================================
 \section{Discussion}
 \label{sec:discussion}
