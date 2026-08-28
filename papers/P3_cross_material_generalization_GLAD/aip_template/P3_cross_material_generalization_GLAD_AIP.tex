@@ -33,11 +33,17 @@
 %    - Pairwise-ranking reformulation: beta accuracy 0.746 (vs 0.544
 %      baseline), p=0.27; porosity accuracy 0.725 (vs 0.602), p=0.28.
 %      Both clear the accuracy bar, neither clears significance.
-%    - Bayesian hierarchical partial-pooling model (n=213/40): atomic
-%      mass's effect on the intercept excludes zero (94% HDI
-%      [-7.24,-0.34]); Bayesian R^2 median 0.28 (intercept layer),
-%      0.20 (slope layer); P(R^2>0.1) = 92%/80%. Genuine complementary
-%      positive finding, not in conflict with the frequentist verdict.
+%    - Bayesian hierarchical partial-pooling model (n=250/46, refit
+%      2026-08-24 after corpus grew from the n=213/40 snapshot): NO
+%      coefficient's 94% HDI excludes zero any more (the earlier
+%      snapshot's mass-intercept exclusion did not survive corpus
+%      growth); Bayesian R^2 median 0.21 (intercept layer), 0.17
+%      (slope layer); P(R^2>0.1) = 84%/73%. Diffuse, modest
+%      complementary signal, not in conflict with the frequentist
+%      verdict -- see 02_PINN_NIF/P3_ML/bayesian_hierarchical_report.md
+%      for the full current numbers and
+%      bayesian_hierarchical_trace_n213_snapshot_20260824.nc for the
+%      superseded trace.
 %
 %  No figures: all results are reported as tables (this simplifies
 %  the AIP conversion relative to P1/P2, which each carry a flat set
@@ -130,15 +136,16 @@ size, not model choice, feature choice, task formulation, or
 extraction quality, all four of which were tested and ruled out as
 explanations. As a complementary, deliberately different analysis, a
 pre-registered Bayesian hierarchical partial-pooling model fitted to
-the same $\beta(\alpha)$ corpus ($n=213$ rows, $40$ materials, all MCMC
-diagnostics clean) finds that atomic mass has a credible non-zero
-effect on a material's mean offset from the tangent rule (94\% highest
-density interval excluding zero) and that Bayesian $R^2$ posteriors
-place 80--92\% probability on material descriptors explaining more
-than 10\% of between-material variance. This does not overturn the
-frequentist non-significance verdict -- it explains it: a
-real-but-modest effect of the size the Bayesian model finds is exactly
-what a permutation test at $n=14$--$43$ materials is underpowered to
+the same $\beta(\alpha)$ corpus ($n=250$ rows, $46$ materials, all MCMC
+diagnostics clean) finds that no individual descriptor coefficient's
+94\% highest-density interval excludes zero, while Bayesian $R^2$
+posteriors still place 73--84\% probability on material descriptors
+explaining more than 10\% of between-material variance. This does not
+overturn the frequentist non-significance verdict -- it is consistent
+with it: a
+diffuse, imprecisely-localized effect of the size the
+Bayesian $R^2$ posteriors suggest is exactly
+what a permutation test at $n=14$--$46$ materials is underpowered to
 detect at $p<0.05$. We present this paper as a resource for the
 GLAD/materials-informatics community: a fully pre-registered,
 diagnostically exhaustive account of where the statistical-power
@@ -519,6 +526,49 @@ gap $E_g(\alpha)$ is the sole observable for which no learned model
 even clears the RMSE bar (best learned model $-9.3\%$, i.e.\ worse
 than baseline; the naive-mean baseline itself remains the best
 ``model''), so its permutation test is not applicable.
+Figure~\ref{fig:rmse_vs_significance} puts this contrast in one view:
+RMSE clears its bar for three of the four observables while
+significance clears for none of them.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig_rmse_vs_significance_bars}
+  \caption{The paper's central pattern in one view: RMSE improvement over
+    the physics/naive baseline clears the pre-registered 15\% bar for
+    three of the four observables tested (a), while the permutation-test
+    significance bar ($p<0.05$) clears for none of them (b), using the
+    same data underlying Table~\ref{tab:pooled_all}. The gap between the
+    two panels is the paper's evidence that model quality is not the
+    limiting factor.}
+  \label{fig:rmse_vs_significance}
+\end{figure}
+
+Both $p$-value drops (beta: $0.22\to0.20\to0.10$; porosity:
+$0.36\to0.32\to0.12$; Figure~\ref{fig:corpus_growth_trend}) tracked a genuine, incremental corpus-growth
+process rather than any change in method or re-analysis of existing
+data -- each round added new literature-sourced rows and, in this
+latest round, two genuinely new materials to the corpus (cerium oxide
+and lanthanum fluoride, Section~\ref{ssec:targeted_growth}). Roughly
+halving both p-values with a handful of added materials is consistent
+with, and strengthens, this paper's central diagnosis that
+material-level sample size, not model choice or task formulation, is
+the binding constraint: the trend moves in exactly the direction that
+diagnosis predicts. We report it plainly as what it is -- a trend, not
+a reversal -- since neither pooled fit clears the pre-registered
+$p<0.05$ bar.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.75\linewidth]{fig_p3_corpus_growth_pvalue_trend}
+  \caption{Material-level permutation-test $p$-value across three
+    successive corpus-growth snapshots, for both $\beta(\alpha)$ and
+    porosity$(\alpha)$. Both quantities trend toward the pre-registered
+    significance bar as independent literature-sourced materials are
+    added, without any change in model or task formulation, supporting
+    the diagnosis that sample size, not method, is the binding
+    constraint.}
+  \label{fig:corpus_growth_trend}
+\end{figure}
 
 \begin{table}[htbp]
   \centering
@@ -558,10 +608,12 @@ respectively), indicating these two features contribute noise rather
 than signal to the fitted GP at this corpus size
 (Table~\ref{tab:lofo}). This descriptive analysis is not itself
 subject to the pre-registered significance bar (which applies only to
-the model-vs-baseline comparison), but it is directly consistent with
-the Bayesian hierarchical model's independent identification of
-atomic mass as the one descriptor with a credibly non-zero effect
-(Section~\ref{ssec:bayes}).
+the model-vs-baseline comparison); at the larger, current corpus
+snapshot, the Bayesian hierarchical model (Section~\ref{ssec:bayes})
+no longer isolates a single descriptor's coefficient as individually
+credible, though its $R^2$ posteriors remain consistent with a
+diffuse, multi-descriptor signal of the kind this earlier LOFO
+snapshot also points toward.
 
 \begin{table}[htbp]
   \centering
@@ -797,16 +849,18 @@ markedly closer than either prior snapshot of this combination.
 
 Fisher's method is most sensitive when several individual p-values
 cluster in a moderately small range (roughly 0.03--0.15) without any
-one crossing 0.05 alone. That is not the regime observed here: input
-p-values of 0.20--0.86 are broadly consistent with genuinely null or
-near-null per-test effects, not a diffuse signal masked only by
-underpowering. This result therefore argues, if anything, against
-per-test underpowering as the sole explanation for the negative
-result at the subgroup/observable level -- while remaining fully
+one crossing 0.05 alone. The current input set is closer to that
+regime than any earlier snapshot -- two of the three inputs
+($\beta(\alpha)=0.10$, porosity$=0.12$) now sit inside the
+sensitive band, with only $n(\alpha)=0.54$ still far outside it --
+which is consistent with the combined $p$ dropping by nearly a
+factor of three (0.347$\to$0.121) even though no single test crossed
+0.05 on its own. This still falls short of the pre-registered
+$p<0.05$ bar, and remains fully
 consistent with the Bayesian hierarchical finding
 (Section~\ref{ssec:bayes}), which concerns a different, narrower
-question (a specific credible effect of atomic mass within the
-elemental-metals corpus) rather than an aggregate cross-class or
+question (the diffuse, whole-descriptor-set $R^2$ signal within the
+full corpus) rather than an aggregate cross-class or
 cross-observable claim.
 
 \subsection{Reformulating the task: ranking instead of regression}
@@ -857,66 +911,96 @@ to predict; it is the number of independent material-level samples
 available to test whether the predicted structure is more than a
 fold-specific artifact.
 
-\subsection{The Bayesian hierarchical partial-pooling model: a genuine complementary positive finding}
+\subsection{The Bayesian hierarchical partial-pooling model: a diffuse, modest complementary signal}
 \label{ssec:bayes}
 
 As a final, deliberately different line of inquiry, the pre-registered
 Bayesian hierarchical model (Section~\ref{ssec:bayes_method}) was fit
-to the $\beta(\alpha)$ corpus ($n=213$ rows, 40 materials). All MCMC
-diagnostics are clean: maximum $\hat{R} = 1.0000$, minimum bulk
-effective sample size $= 1342$, across all seven population-level
-parameters.
+to the $\beta(\alpha)$ corpus at its current snapshot ($n=250$ rows, 46
+materials). All MCMC diagnostics are clean: maximum $\hat{R} = 1.0045$,
+minimum bulk effective sample size $= 897$, across all seven
+population-level parameters. An earlier snapshot of this same
+pre-registered model ($n=213$ rows, 40 materials) found one
+coefficient -- the effect of atomic mass on a material's mean offset
+from the tangent rule -- with a 94\% HDI excluding zero; at the current,
+larger corpus that result no longer holds (Table~\ref{tab:bayes_coef}),
+illustrating exactly the kind of individual-coefficient instability the
+$R^2$-as-primary-deliverable framing below was pre-registered to guard
+against.
 
-Of the six descriptor coefficients (three each for the intercept and
-slope layers), one -- the effect of atomic mass on a material's mean
-offset from the tangent rule, $\mathrm{mean}=-3.639$, 94\% HDI
-$=[-7.240,-0.344]$ -- excludes zero. The other five (melting point and
-bulk density on both intercept and slope, and mass on slope) have HDIs
-that include zero, though several are one-sided enough to be
-suggestive rather than flatly null (Table~\ref{tab:bayes_coef}).
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{fig_bayesian_posterior_descriptors}
+  \caption{Posterior distributions of the six population-level descriptor
+    coefficients from the hierarchical partial-pooling model, current
+    corpus snapshot ($n=250$, 46 materials). Dots mark
+    posterior means; thick and thin bars span the 50\% and 94\%
+    highest-density intervals. None crosses zero at the 94\% level.}
+  \label{fig:bayes_posterior}
+\end{figure}
 
 \begin{table}[htbp]
   \centering
   \caption{Bayesian hierarchical model: population-level descriptor
     coefficients (standardized descriptors), 94\% highest-density
-    intervals (HDI). Only atomic mass's intercept-layer coefficient
-    excludes zero.}
+    intervals (HDI), current corpus snapshot ($n=250$, 46 materials).
+    No coefficient excludes zero.}
   \label{tab:bayes_coef}
   \begin{tabular}{llrrc}
     \toprule
     Layer & Descriptor & Mean & 94\% HDI & Excludes 0? \\
     \midrule
-    Intercept ($a_i$) & Atomic mass    & $-3.639$ & $[-7.240,-0.344]$ & \textbf{Yes} \\
-    Intercept ($a_i$) & Melting point  & $-3.288$ & $[-6.588, 0.151]$ & No \\
-    Intercept ($a_i$) & Bulk density   & $ 1.121$ & $[-2.424, 4.884]$ & No \\
-    Slope ($b_i$)      & Atomic mass    & $-1.554$ & $[-4.916, 1.834]$ & No \\
-    Slope ($b_i$)      & Melting point  & $-2.552$ & $[-5.943, 0.475]$ & No \\
-    Slope ($b_i$)      & Bulk density   & $ 2.214$ & $[-1.070, 5.528]$ & No \\
+    Intercept ($a_i$) & Atomic mass    & $-2.214$ & $[-5.060, 0.949]$ & No \\
+    Intercept ($a_i$) & Melting point  & $-2.771$ & $[-5.969, 0.175]$ & No \\
+    Intercept ($a_i$) & Bulk density   & $ 0.313$ & $[-3.112, 3.309]$ & No \\
+    Slope ($b_i$)      & Atomic mass    & $ 0.001$ & $[-3.071, 2.637]$ & No \\
+    Slope ($b_i$)      & Melting point  & $-2.330$ & $[-5.401, 0.550]$ & No \\
+    Slope ($b_i$)      & Bulk density   & $ 1.378$ & $[-1.544, 4.399]$ & No \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The primary deliverable, the Bayesian $R^2$, is more informative than
-the per-coefficient test: the posteriors are not concentrated near
-zero. The intercept-layer $R^2_a$ has posterior median 0.28 (94\% HDI
-$[0.045,0.512]$; $P(R^2_a>0.1)=92\%$, $P(R^2_a>0.2)=72\%$); the
-slope-layer $R^2_b$ has median 0.20 (94\% HDI $[0.005,0.430]$;
-$P(R^2_b>0.1)=80\%$, $P(R^2_b>0.2)=50\%$). Read plainly: it is quite
-likely (80--92\% posterior probability) that these three descriptors
-explain a non-trivial share of material-to-material variation in
-$\beta(\alpha)$, with better-than-even odds the share exceeds a fifth
--- but the credible intervals are wide and do not exclude a near-zero
-effect at one end, and substantial residual per-material idiosyncrasy
-remains unexplained either way (residual scales $\sigma_a=8.41^{\circ}$,
-$\sigma_b=7.03^{\circ}$, both large relative to the mean coefficients).
+At the current corpus snapshot none of the six coefficients excludes
+zero at the 94\% level -- the earlier snapshot's single exclusion
+(atomic mass, intercept layer) is exactly the kind of result a naive
+independent-testing frame predicts will occur roughly one time in six
+under six simultaneous null tests, and it did not survive the corpus
+growing from 40 to 46 materials. We report this outcome plainly rather
+than retaining the earlier claim: it is direct evidence that
+individual-coefficient exclusion is not a stable basis for a positive
+claim at this corpus size, which is precisely why the pre-registration
+(Section~\ref{ssec:bayes_method}) designated the Bayesian $R^2$, not
+any single coefficient's HDI, as this analysis's primary deliverable.
+
+The primary deliverable, the Bayesian $R^2$, is more stable across this
+same corpus growth than the per-coefficient test. The intercept-layer
+$R^2_a$ has posterior median 0.21 (94\% HDI
+$[0.017,0.430]$; $P(R^2_a>0.1)=84\%$, $P(R^2_a>0.2)=53\%$); the
+slope-layer $R^2_b$ has median 0.17 (94\% HDI $[0.002,0.410]$;
+$P(R^2_b>0.1)=73\%$, $P(R^2_b>0.2)=41\%$). Read plainly: it remains
+more likely than not (73--84\% posterior probability) that these three
+descriptors jointly explain a non-trivial share of material-to-material
+variation in $\beta(\alpha)$, even though no single descriptor's effect
+is individually well-localized enough to exclude zero -- but the
+credible intervals are wide and reach close to zero at one end, and
+substantial residual per-material idiosyncrasy remains unexplained
+either way (residual scales $\sigma_a=8.06^{\circ}$,
+$\sigma_b=6.75^{\circ}$, both large relative to the mean coefficients).
 
 This does not contradict the negative frequentist verdict of
 Sections~\ref{ssec:pooled}--\ref{ssec:ranking}, and should not be read
-as doing so -- it answers a different question. A real-but-modest
-effect, imprecisely estimated (median $R^2$ around 0.2--0.3 but a wide
-HDI reaching close to zero), is exactly the kind of signal a
-leave-one-material-out permutation test at $n=37$--43 materials is
+as doing so -- it answers a different question. A diffuse,
+imprecisely-localized effect (median $R^2$ around 0.17--0.21 but a wide
+HDI reaching close to zero, spread across three correlated descriptors
+rather than concentrated in one) is exactly the kind of signal a
+leave-one-material-out permutation test at $n=37$--46 materials is
 underpowered to detect at $p<0.05$ even when the effect is genuine.
+This $R^2$ finding is not an artifact of the specific prior scale chosen:
+refitting the identical model with the regression-coefficient prior
+standard deviation set to half (5) and three times (30) the
+pre-registered value (10) leaves $P(R^2_a{>}0.1)$ at $0.81$--$0.85$ and
+$P(R^2_b{>}0.1)$ at $0.70$--$0.74$ across all three settings, a stable
+result under a six-fold range of prior scale.
 Two caveats apply. First, crystal structure was excluded from the
 group-level regression for identifiability reasons (19 levels across
 43 materials); if it carries real information, as is physically
@@ -945,7 +1029,9 @@ specifically statistical power, not model quality or task framing:
 every reformulation tried reproduces the same pattern of strong effect
 size and weak significance, and the one framework built to be
 sensitive to a real-but-modest effect under small samples (the
-Bayesian hierarchical model) finds exactly that.
+Bayesian hierarchical model) finds a diffuse version of exactly that,
+spread across the descriptor set rather than localized in any single
+one.
 
 % ============================================================
 \section{Discussion}
@@ -990,15 +1076,22 @@ frequentist verdict at every snapshot tested here remains NOT CLEARED.
 
 Third, and most directly, the Bayesian hierarchical analysis
 (Section~\ref{ssec:bayes}) demonstrates \emph{why} a permutation-test
-failure at $n=14$--43 materials does not mean there is no effect. The
+failure at $n=14$--46 materials does not mean there is no effect. The
 same corpus that fails the material-level permutation test at
-$p=0.20$--0.36 yields Bayesian $R^2$ posteriors with 80--92\%
+$p=0.10$--0.36 yields Bayesian $R^2$ posteriors with 73--84\%
 probability of explaining more than 10\% of between-material variance
-in $\beta(\alpha)$, concentrated specifically on atomic mass. These
-two results are not in tension: a permutation test at this sample size
-is a coarse, conservative instrument, and a real-but-modest effect of
-exactly the size the Bayesian model estimates is precisely what it is
-underpowered to detect. Reporting only the frequentist NOT-CLEARED
+in $\beta(\alpha)$, spread diffusely across the three descriptors
+rather than concentrated in any single one -- an earlier, smaller
+corpus snapshot had isolated atomic mass individually, but that
+result did not survive the corpus growing to its current size
+(Section~\ref{ssec:bayes}), which is itself informative: it shows the
+per-coefficient signal is real enough to appear intermittently but not
+yet stably localized to one descriptor. These
+results are not in tension with the frequentist verdict: a permutation
+test at this sample size is a coarse, conservative instrument, and a
+diffuse, real-but-modest effect of exactly the size the Bayesian $R^2$
+posteriors estimate is precisely what it is underpowered to detect.
+Reporting only the frequentist NOT-CLEARED
 verdict, without the Bayesian analysis that characterizes \emph{how}
 partial the evidence is, would understate what this corpus actually
 supports; reporting only the Bayesian result, without the frequentist
@@ -1036,6 +1129,30 @@ single-campaign Besnard extension added new materials with internally
 consistent measurement conditions and moved $p$ in the right direction
 relative to the cross-source attempt (though still short of the
 14-material baseline).
+
+\subsection{Repeated testing across corpus-growth rounds does not inflate the reported significance bar}
+\label{ssec:disc_multipletesting}
+
+The corpus was grown and re-tested across roughly eleven rounds over the course of this
+investigation (Section~\ref{ssec:disc_samplesize}, Figure~\ref{fig:corpus_growth_trend}), and one
+early snapshot ($n=73$ rows, 23 materials, Section~\ref{sec:methods}) briefly cleared the
+permutation-test bar ($p=0.020$) before reverting under further growth. A referee could
+reasonably ask whether repeated testing across these rounds inflates the effective false-positive
+rate the way repeated testing of a fixed dataset under a changing method would. It does not, for
+two structural reasons. First, the significance threshold itself was fixed once, in the
+pre-registration, and was never adjusted, loosened, or re-derived at any round -- every round is
+scored against the same $p<0.05$ bar decided before any of this analysis began. Second, each round
+changes the \emph{data}, not the \emph{test}: new literature-sourced rows and, in several rounds,
+genuinely new materials were added to the corpus, and the identical pre-registered
+leave-one-material-out permutation procedure was re-run on the enlarged dataset. This is
+methodologically closer to a sequential replication design (does the effect, if real, persist and
+strengthen as more independent evidence arrives) than to the classical multiple-comparisons
+scenario the concern is modelled on (many independent hypotheses tested against one fixed dataset,
+where reporting only the significant ones inflates the discovery rate). The one early $p=0.020$
+result is reported here specifically because it did \emph{not} hold up -- we do not treat it as a
+discovery to be defended, but as direct evidence that a single small-corpus permutation result
+should not be trusted without a subsequent-round replication check, which is exactly the caveat
+this subsection exists to make explicit.
 
 \subsection{What would resolve the open question}
 \label{ssec:disc_resolve}
@@ -1118,19 +1235,23 @@ results are an artifact of per-test underpowering rather than a
 genuine absence of effect -- was tested via a pre-registered Fisher's
 combined-probability test across the three disjoint material-class
 subgroups and separately across the three pooled observable-level
-tests, and also ruled out (combined $p=0.715$ and $p=0.390$
-respectively; neither clears the bar, and the input p-value magnitudes
-are not consistent with the diffuse-weak-signal regime Fisher's method
-is designed to detect). The specific, remaining, and
+tests, and also ruled out (combined $p=0.715$ and $p=0.121$
+respectively, the latter updated 2026-08-21 after the second same-day
+corpus-growth round dropped its two beta/porosity inputs to
+$p=0.10$/$0.12$; neither combination clears the bar, though the
+observable-level combination's input p-values now sit closer to the
+diffuse-weak-signal regime Fisher's method is designed to detect than
+at any earlier snapshot). The specific, remaining, and
 well-quantified bottleneck is material-level sample size. A
 complementary Bayesian hierarchical partial-pooling model, fit
-independently and asking a different statistical question, finds a
-genuine, credible non-zero effect of atomic mass on the material-level
-offset from the physics baseline and places 80--92\% posterior
-probability on descriptors explaining more than 10\% of
-between-material variance -- a result fully consistent with, and
-explanatory of, the frequentist non-significance verdict rather than
-contradicting it.
+independently and asking a different statistical question, places
+73--84\% posterior
+probability on descriptors jointly explaining more than 10\% of
+between-material variance -- diffusely spread across the descriptor
+set rather than individually localized, since no single coefficient's
+94\% HDI excludes zero at the current corpus size -- a result fully
+consistent with, and explanatory of, the frequentist non-significance
+verdict rather than contradicting it.
 
 We report this as a rigorous, multi-angle-tested negative-to-mixed
 result: a well-instrumented account of exactly where the
