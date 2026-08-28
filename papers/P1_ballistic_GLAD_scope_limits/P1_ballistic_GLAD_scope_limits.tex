@@ -2016,6 +2016,71 @@ different directions relative to their respective literature references.
   \label{fig:beta_p_comparison}
 \end{figure}
 
+\subsection{Robustness of film connectivity at \texorpdfstring{$\dang=89^{\circ}$}{alpha=89 deg} across candidate mechanisms}
+\label{ssec:connectivity_robustness}
+
+The results above concern column-tilt angle and growth exponent. A
+separate observable -- whether the deposited film forms a single
+laterally connected layer or fragments into isolated columns -- was
+probed independently at the most oblique angle simulated, $\dang=89^{\circ}$,
+using a periodic-voxel connected-components classifier (0.5\,nm voxels,
+film band $z\in[10\,\mathrm{nm},\,0.90H]$; largest-component fraction
+LF and biaxial percolation $P_x/P_y$ as the primary descriptors). Three
+candidate mechanisms were tested with dedicated campaigns:
+
+\begin{enumerate}
+  \item \textbf{First-contact sticking probability.} Nine runs
+    ($s\in\{0.2,0.5,1.0\}$, three seeds each, $\dang=89^{\circ}$,
+    $\SI{300}{nm}$ target height) all reach the connected-film regime
+    (LF $=0.9858$--$0.9944$); the spread between sticking-probability
+    arms (0.0009) is more than four times smaller than the spread within
+    a single arm across seeds (up to 0.0039), so sticking probability in
+    this range produces no detectable topology change.
+  \item \textbf{Nucleation-site spacing.} Nine runs (spacing
+    $\in\{0.5,1.0,2.2\}\,\mathrm{nm}$, three seeds each, same angle and
+    height) likewise all remain in the connected-film regime (LF
+    $=0.9606$--$0.9919$), with the film, if anything, slightly \emph{more}
+    connected at the widest spacing tested -- opposite the direction a
+    denser-nucleation-promotes-connectivity hypothesis would predict.
+  \item \textbf{Rotation mode (static vs.\ helical substrate).} This is
+    the one mechanism that does change the topology class. Nine paired
+    static/helical runs at $\dang\in\{75^{\circ},85^{\circ},89^{\circ}\}$
+    (three seeds each, diffusion and angular divergence off) show no
+    effect at $75^{\circ}$ or $85^{\circ}$ (LF $\geq0.9998$ for both
+    modes), but at $89^{\circ}$ the static-substrate film loses
+    $y$-percolation and its largest-component fraction collapses to
+    $0.081$--$0.130$, versus $0.974$--$0.987$ for the paired helical run
+    at the same seed -- a reproducible, threshold-stable effect across
+    all three seeds. This is consistent with a directional-shadowing
+    picture in which a fixed flux azimuth produces anisotropic,
+    direction-dependent column competition at the most oblique angles,
+    an effect documented experimentally for Cu GLAD nanorods
+    \citep{kesapragada2006}; substrate rotation removes the fixed
+    azimuth and restores isotropic connectivity.
+\end{enumerate}
+
+Two further candidate mechanisms remain open rather than closed. Surface
+diffusion's effect on connectivity at $\dang=89^{\circ}$ specifically has
+not been tested; the diffusion campaign discussed above
+(Section~\ref{ssec:diffusion_comparison}) targets column-tilt angle at
+$\dang=85^{\circ}$, and its result should not be assumed to generalize to
+the connectivity observable at a different angle without a dedicated run.
+Particle re-emission has not been tested empirically either; a
+deductive argument -- that the largest-component fraction is
+monotonically non-decreasing as atoms are added, so a film already
+percolated by first contact cannot subsequently be severed by a
+downstream re-emission step -- suggests re-emission alone would not
+reverse an established connected topology, but this has not been
+confirmed by simulation and is stated here as an argument, not a result.
+
+Taken together, of three empirically tested candidate mechanisms, two
+(sticking probability, nucleation-site spacing) leave film connectivity
+at $\dang=89^{\circ}$ unchanged over the ranges tested, and one
+(rotation mode) produces a real, reproducible, three-seed-confirmed
+topology change. Lateral box size was not varied in any of these three
+campaigns and remains untested for this observable, alongside the two
+mechanisms discussed above that are not yet backed by dedicated runs.
+
 \subsection{Limitations and future work}
 \label{ssec:limits}
 
