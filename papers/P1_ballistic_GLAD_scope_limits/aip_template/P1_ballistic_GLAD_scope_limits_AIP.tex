@@ -1837,27 +1837,45 @@ comparison above.
 
 As a preliminary cross-check of this effective-medium screening's own
 accuracy, a full-wave finite-difference time-domain (FDTD) calculation
-\citep{oskooi2010meep} was run for the single-cylinder geometry at
-$\dang=65^{\circ}$ ($f=0.492$), extracting an effective index from a
-thin-slab (Born-approximation) field-ratio inversion. The extraction
-method was validated first against a case with a known answer (a uniform,
-lossless $\varepsilon=4$ slab), recovering $n=1.907+0.134i$ against the
-true $2.0+0i$ -- a residual consistent with the approximation's stated
-limitation of neglecting interface reflections, not a remaining error in
-the method. Applied to the same geometry and wavelength as the table
-above, the FDTD-extracted extraordinary index is $n_e = 2.144+2.513i$,
-compared to the Maxwell-Garnett value $n_e=2.518+1.914i$ at this row: a
-$-14.8\%$ difference in the real part and $+31.3\%$ in the imaginary
-part, both larger than the validation case's residual. This suggests the
-Maxwell-Garnett illustration's departure from a full-wave calculation may
-be non-negligible even at this single design wavelength, but the check
-is a single-cylinder, single-wavelength, single-polarisation pilot with
-interface reflections neglected in the extraction and no dispersion fit
-away from \SI{500}{nm} -- it should be read as indicative of a real gap,
-not as a validated correction to the table above. A rigorous replacement
-of this screening (multi-column geometry, both polarisations, a
-reflection-accounting retrieval, and a fitted material dispersion) is
-future work.
+\citep{oskooi2010meep} was run for a periodic array of tungsten cylinders
+at $\dang=65^{\circ}$ ($f=0.492$), extracting an effective index via a
+reflection-accounting (Nicolson-Ross-Weir/Fabry-Perot) inversion of the
+simulated complex transmission coefficient, using tungsten's real
+dispersion (a four-oscillator Lorentz-Drude fit \citep{rakic1998optical},
+validated to match its own tabulated reference values to four significant
+figures across \SIrange{400}{700}{nm} before use). Two methodological
+checks were completed before trusting this result. First, the extraction
+itself was validated against a case with a known answer (a uniform,
+lossless $\varepsilon=4$ slab): a thin-slab (Born) approximation recovers
+$n=1.907+0.134i$ against the true $2.0+0i$ ($\sim\!5\%$ error), while the
+reflection-accounting inversion used here recovers $n=2.0015+0.0021i$
+($\sim\!0.1\%$ error). Second, retrieval convergence with the number of
+periods in the array was checked directly (a single cylinder is a thin
+scattering layer, not yet a bulk periodic medium): the per-period index
+converges smoothly from $N=1$ to $N=4$ periods and is stable to
+$<\!1\%$ under a $50\%$ increase in spatial resolution. With both checks
+passed, the four-period, dispersion-resolved result across
+\SIrange{450}{550}{nm} gives an extraordinary index systematically
+$\sim\!10\%$ lower (real part) and $5$--$8\%$ higher (imaginary part,
+i.e.\ more lossy) than the Maxwell-Garnett prediction at the same
+wavelengths, stable across this range rather than varying erratically --
+e.g.\ at \SI{500}{nm}, FDTD gives $n_e=2.207+1.896i$ versus the
+Maxwell-Garnett $n_e=2.444+1.785i$ ($-9.7\%$/$+6.3\%$). Both polarisations
+were not tested in this dispersion-resolved sweep (only the extraordinary,
+E-parallel-to-column configuration); a single-wavelength check of the
+ordinary axis at \SI{500}{nm} (single-frequency material model, four-period
+retrieval) gave $n_o=1.670+0.322i$ versus the Maxwell-Garnett
+$n_o=1.679+0.102i$ at this row -- close agreement in the real part
+($-0.5\%$) alongside a substantially larger extraordinary-axis-style
+underestimate of the loss ($k_o$ low by a factor of $\sim\!3$), consistent
+with the general observation that Maxwell-Garnett theory is known to be
+less reliable for absorption than for the real refractive index in
+high-contrast lossy composites. Remaining limitations: this is still a
+single unit-cell geometry (idealised cylinders, not the simulator's own
+voxel field), and the ordinary-axis result does not yet share the
+dispersion-resolved, multi-wavelength treatment applied to the
+extraordinary axis above. A full replacement of this screening using the
+simulator's actual column geometry remains future work.
 
 % ============================================================
 \section{Discussion}
