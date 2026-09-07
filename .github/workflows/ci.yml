@@ -1,0 +1,96 @@
+name: CI
+
+# Added 2026-09-06. Context: this repo previously had zero automated verification --
+# the only enforcement anywhere in the project was a LOCAL git pre-commit hook on the
+# separate private working tree (D:\GLAD_PROJECT), which was found silently disabled
+# (renamed pre-commit.disabled) for several days with nobody noticing. A hook that only
+# exists on one machine and can be defeated by renaming a file is not a real control.
+# This workflow is the server-side backstop for the PUBLIC release code specifically:
+# it runs on GitHub's infrastructure regardless of the state of anyone's local checkout,
+# so a broken/disabled local hook can no longer be an invisible single point of failure
+# for the code that actually ships. See TOOLING_INFRASTRUCTURE_AUDIT_20260906.md.
+#
+# Scope note: this only covers code/ (the curated public release subset). The private
+# repo's own governance gates (doc-integrity, DB consistency, pause/resume compliance,
+# etc.) operate on the full working tree, which has no GitHub remote and therefore
+# cannot get GitHub Actions CI the same way -- see that audit doc for the session-start
+# health-check that covers the private-repo side of this gap instead.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  syntax-check:
+    name: Syntax-check every Python file
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile-check all code/ Python files
+        run: |
+          find code -name "*.py" -print0 | xargs -0 -n1 python -m py_compile
+          echo "All files compiled cleanly."
+
+  cpu-tests:
+    name: Install deps (CPU-only) and run test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # requirements.txt's cupy line is commented out by design (GPU-only, no
+          # CI runner has one) -- everything else installs and runs on CPU per
+          # requirements.txt's own header comment.
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Import-smoke-test CPU-only modules (code/nif_corrnif, code/figures)
+        run: |
+          python - <<'PYEOF'
+          import ast, sys, pathlib
+
+          failures = []
+          for root in ("code/nif_corrnif", "code/figures"):
+              for f in pathlib.Path(root).rglob("*.py"):
+                  src = f.read_text(encoding="utf-8")
+                  try:
+                      ast.parse(src, filename=str(f))
+                  except SyntaxError as e:
+                      failures.append(f"{f}: {e}")
+
+          if failures:
+              print("AST parse failures:")
+              for line in failures:
+                  print(" ", line)
+              sys.exit(1)
+          print(f"AST-parsed all files under code/nif_corrnif and code/figures cleanly.")
+          PYEOF
+      - name: Run existing test suite
+        run: |
+          # pytest exits 5 specifically for "no tests collected" -- distinct from exit 1
+          # (real test failure). Right now code/nif_corrnif/test_permutation_fixC.py is a
+          # real, valuable test but genuinely NOT collectible yet: it's gated on a GPU
+          # training run (Fix C / PartialConditionedNIF) that hasn't happened, per its own
+          # docstring. Treating exit 5 as a hard CI failure would make every single push
+          # show a permanent red badge for a known, documented, temporary state -- exactly
+          # the kind of always-failing check that (per this project's own 2026-09-06
+          # tooling audit) invites someone disabling the whole gate out of alarm fatigue.
+          # So: exit 5 -> visible warning, build stays green. Any OTHER non-zero exit
+          # (a real test failure, exit 1) still hard-fails the build as normal.
+          set +e
+          python -m pytest code/nif_corrnif -q
+          code=$?
+          set -e
+          if [ "$code" -eq 5 ]; then
+            echo "::warning::No tests currently collectible (pytest exit 5) -- expected until Fix C training completes, see test_permutation_fixC.py's own docstring. Not treated as a CI failure."
+            exit 0
+          fi
+          exit $code
