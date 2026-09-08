@@ -21,6 +21,10 @@
 %    Fig 13 — maxwell_garnett_concept.pdf
 %    Fig 14 — nif_optical_properties.pdf
 %    Fig 15 — boxconv_density_vs_L.pdf (Appendix, app:boxconv)
+%    Fig 16 — corrnif_gradient_inverse_demo.pdf (added 2026-09-08, Sec. nif_gradient_demo)
+%    Fig 17 — fig_p1_beta_alpha_structure_tensor.pdf (added 2026-09-08, Sec. column-tilt)
+%    [2026-09-09 -- header list corrected to match all \includegraphics calls; was
+%     missing these two. See P1_PAPER_QUALITY_AUDIT_20260909.md item 3.]
 %
 %  Converted 2026-07-10 from the Springer Nature sn-jnl.cls source
 %  (05_THESIS_PAPER_ASSETS/article_draft/P1_ballistic_GLAD_scope_limits.tex)
@@ -56,8 +60,11 @@
 % ============================================================
 \begin{document}
 
-\title{Realization-Dependent Microstructure and Statistical Morphology
-  Emulation in Ballistic Helical GLAD}
+% [2026-09-09, per O.B.H.A. instruction -- retitled so the title reflects the abstract's
+%  headline invertibility claim (the previous title did not mention inversion at all).
+%  Human author to finalise wording. See P1_PAPER_QUALITY_AUDIT_20260909.md item 1.]
+\title{Invertible Statistical Morphology in Ballistic Helical GLAD: Angle
+  Recovery and the Limits of Realization-Dependent Prediction}
 
 \author{Oussama Ben Haj Ali}
 \email{oussama.benhadjali@fst.utm.tn}
@@ -230,7 +237,11 @@ aligned-cylinder Maxwell-Garnett effective-medium model \citep{maxwell1904},
 provide a loss-aware birefringence screening illustration for high-index
 columnar geometries.
 
-Concretely, this paper answers four questions that an experimentalist
+% [2026-09-09, per O.B.H.A. instruction -- added Q5 so the introduction's own guiding
+%  questions match the abstract's headline invertibility claim; previously the inversion
+%  result was mentioned only in passing here and answered nowhere in the Conclusion.
+%  Human author to finalise wording. See P1_PAPER_QUALITY_AUDIT_20260909.md item 1.]
+Concretely, this paper answers five questions that an experimentalist
 choosing a deposition angle, or a modeller deciding what to simulate next,
 would need answered before trusting a ballistic GLAD simulation:
 \begin{enumerate}
@@ -249,8 +260,13 @@ would need answered before trusting a ballistic GLAD simulation:
   \item[\textbf{Q4}] What do the resulting morphology descriptors imply,
     even only illustratively, for the optical anisotropy that end
     applications (polarimetric sensors, waveplates) depend on?
+  \item[\textbf{Q5}] Can the deposition angle behind a measured structural
+    descriptor be recovered by inverting the model---and, beyond a single
+    demonstration, how accurate and reliable is that recovery across
+    different target angles, including outside the range directly bounded
+    by training data?
 \end{enumerate}
-The Conclusion (Section~\ref{sec:conclusion}) closes against these four
+The Conclusion (Section~\ref{sec:conclusion}) closes against these five
 questions in the same order.
 Specifically, we report:
 (i)~the bead-sphere void-fraction trend across the deposition-angle sweep
@@ -261,14 +277,20 @@ evolution (Section~\ref{sec:results_zprofile}, Q2);
 (Section~\ref{sec:results_pca}, Q2);
 (iv)~a quantitative cross-material, cross-method discrepancy of
 $+\SI{23.0}{pp}$ against published optical void fractions
-(Section~\ref{sec:results_lit}, Q1); and
+(Section~\ref{sec:results_lit}, Q1);
 (v)~a full analysis: a corotating-frame oracle bounding absolute-position
 recovery, \textsc{CorrNIF}
   pair-correlation interpolation with interior leave-one-angle-out
   $R^2 = 0.992$, prospective validation at $\dang = 72^{\circ}$
   (\textsc{CorrNIF} $R^2 = 0.9907$), and an
 illustrative loss-aware Maxwell-Garnett birefringence screening
-(Section~\ref{sec:nif}, Q3 and Q4).
+(Section~\ref{sec:nif}, Q3 and Q4); and
+(vi)~a gradient-based inverse-recovery demonstration together with a
+systematic leave-one-angle-out validation of that recovery across all
+seven training angles, quantifying accuracy separately for interpolation
+($1.94^{\circ}$ mean error, cross-validating an independent analytical
+noise-propagation estimate) and extrapolation ($6.48^{\circ}$ mean error)
+(Section~\ref{ssec:nif_gradient_demo}, Q5).
 Section~\ref{sec:discussion} discusses implications for data-driven GLAD
 modelling and the limits of effective-medium optical screening.
 
@@ -1804,6 +1826,35 @@ claimed: a genuine gradient-based query is usable in practice, at a
 precision commensurate with, and no worse than, \textsc{CorrNIF}'s already
 established forward-interpolation accuracy.
 
+% [2026-09-09, per O.B.H.A. instruction -- systematic LOO validation of the recovery
+%  procedure beyond the single alpha=72 target; closes P1_PAPER_QUALITY_AUDIT_20260909.md
+%  item 2. Human author to finalise wording.]
+\textit{Systematic validation beyond a single target.} The demonstration above
+establishes that the optimisation procedure itself is reliable (one basin,
+exact grid agreement) but, on its own, characterises recovery accuracy at only
+one target angle. We therefore repeat the identical procedure as a
+leave-one-angle-out (LOO) sweep: for each of the seven training angles in
+turn, \textsc{CorrNIF} is retrained on the remaining six and the held-out
+angle's own true curve is recovered by the same five-restart gradient descent,
+bounded to the training range (an early unconstrained run let one fold escape
+to a non-physical angle outside $[65^{\circ},89^{\circ}]$ once its nearest
+anchor was removed---a real limitation of unconstrained recovery, fixed here
+by clamping, standard practice for a bounded one-dimensional inverse problem).
+Across the five folds where the held-out angle remains bounded by training
+angles on both sides (interpolation), the mean recovery error is
+$1.94^{\circ}$, closely matching the independent, analytically derived
+noise-propagated precision reported above ($\sigma_{\dang}\approx0.9$--$2.4^{\circ}$)---an
+empirical cross-validation of that estimate by a different method. Across the
+two folds at the range endpoints (extrapolation, $\dang=65^{\circ}$ and
+$89^{\circ}$), the mean error is substantially worse, $6.48^{\circ}$, and one
+interior fold converges to the search-range boundary rather than an interior
+optimum. The original $\dang=72^{\circ}$ demonstration ($0.82^{\circ}$ error)
+is therefore representative of the interpolation regime, not a favourable
+outlier; the recovery capability claimed in this section should be read as
+established for interpolation within the training range, with extrapolation
+beyond it identified as a genuine, quantified limitation rather than left
+untested.
+
 \subsection{Effective optical properties: a loss-aware Maxwell-Garnett screening illustration}
 \label{ssec:nif_optical}
 
@@ -2427,6 +2478,12 @@ This study is subject to the following limitations:
     coverage reported here is bounded by this cost rather than by any
     modelling choice, and finer or wider parameter sweeps scale
     accordingly.
+  \item Inverse recovery (Section~\ref{ssec:nif_gradient_demo}) is
+    accurate for interpolation within the training range ($1.94^{\circ}$
+    mean error, leave-one-angle-out) but markedly worse at extrapolation
+    beyond it ($6.48^{\circ}$ mean error at the two range endpoints); a
+    target curve from a genuinely out-of-range angle should not be assumed
+    recoverable to interpolation-level precision.
 \end{enumerate}
 
 Future work should address (i) addition of a phenomenological diffusion
@@ -2653,11 +2710,31 @@ $T_e \sim 10^{-6}$ through \SI{300}{nm}).  The retained result is only the
 qualitative angular trend, which is consistent with the Cu$_2$O and CuO$_x$
 GLAD measurements of \citet{chaffar2018,chaffar2019} (a single shared
 experimental lineage, not independent confirmations).
+% [2026-09-09, per O.B.H.A. instruction -- Q5 answer added so the Conclusion closes on
+%  the abstract's own headline claim, which the pre-2026-09-08 four-question structure
+%  never answered explicitly. Human author to finalise wording.]
+\textbf{Answering Q5} (inverse recovery of the deposition angle): gradient
+descent through the frozen \textsc{CorrNIF} model recovers $\dang$ from a
+measured pair-correlation curve, converging to the same optimum as an
+exhaustive grid search from five deliberately mismatched starting points
+(Section~\ref{ssec:nif_gradient_demo}). Beyond the single $\dang=72^{\circ}$
+demonstration, a systematic leave-one-angle-out sweep across all seven
+training angles shows this recovery is accurate for interpolation
+($1.94^{\circ}$ mean error, closely matching the independent analytical
+$\sigma_{\dang}$ estimate above) and markedly less accurate for extrapolation
+beyond the training range ($6.48^{\circ}$ mean error at the two range
+endpoints). No prior published work inverts GLAD morphology to recover
+deposition angle; this capability, together with its now-characterised
+interpolation/extrapolation asymmetry, is reported as the paper's central
+methodological contribution rather than a secondary demonstration.
+
 Together, the ballistic simulator (with its characterised cross-material
-discrepancy), the \textsc{CorrNIF} statistical-morphology emulator, and the
-illustrative effective-medium step form a simulation-only workflow for
-ranking helical GLAD geometries by ensemble morphology; quantitative optical
-design and material calibration are left to dedicated experiments.
+discrepancy), the \textsc{CorrNIF} statistical-morphology emulator and its
+inverse-recovery capability, and the illustrative effective-medium step form
+a simulation-only workflow for ranking helical GLAD geometries by ensemble
+morphology and for recovering the process angle behind a measured film;
+quantitative optical design and material calibration are left to dedicated
+experiments.
 The magnitude of the surface-diffusion omission can be given an independent, quantitative anchor from an unrelated GLAD system: for sputter-deposited ZnO nanorods, \citet{laforge2014} reports an adatom surface-diffusion hop time of order $\tau_h \sim 2\times10^{3}$~s and a monolayer-burial time $\tau_m \sim 20$--$350$~s under comparable growth conditions---both far shorter than the deposition timescale of a single monolayer in a typical GLAD run, confirming that diffusive adatom motion is not a negligible process on the timescale of column formation even though it is absent from the present ballistic model by construction. This is offered as an order-of-magnitude cross-material check on the size of the omitted physics, not a claim that these particular timescales transfer quantitatively to Cu.
 
 The principal identified limitations---absence of surface diffusion, restriction
