@@ -187,13 +187,14 @@ much of a film's internal structure a simplified, physics-based computer
 model can actually predict from $\dang$ alone. We address this with a
 ballistic simulator, in which atoms are treated as hard spheres that stick
 wherever they first touch the growing film, with no surface diffusion,
-across twelve helical-rotation Cu film configurations
+across eight helical-rotation Cu film configurations
 ($\dang=60^{\circ}$--$89^{\circ}$, height $h=\SI{300}{nm}$, helical
-pitch$=\SI{150}{nm}$). Void fraction (the empty-space fraction of the film)
-increases monotonically from $88.1\%$ to $98.5\%$ with $\dang$, and is
-highly reproducible: repeat runs with different random seeds agree to
-within $0.25\%$ at this box/height convention (this reproducibility
-degrades at larger lateral box size; Appendix~\ref{app:boxconv}). By
+pitch$=\SI{150}{nm}$; one production realization per angle). Void fraction
+(the empty-space fraction of the film)
+increases monotonically from $94.2\%$ to $99.4\%$ with $\dang$, tracking the
+expected shadowing-driven trend at this box/height convention (a lateral
+box-size dependence of the absolute values is characterised separately;
+Appendix~\ref{app:boxconv}). By
 contrast, we identify a clear limit to what is predictable: a
 corotating-frame oracle test shows that the exact position of an individual
 column carries no signal that generalizes across different random
@@ -304,8 +305,9 @@ extracted from GLAD simulation data has been systematically established.
 
 Here we address this gap with a combined simulation-characterisation and
 machine-learning study of the bead-sphere ballistic GLAD simulator
-across twelve helical Cu configurations spanning $\dang = 60^{\circ}$--$89^{\circ}$
-($h = \SI{300}{nm}$, pitch $= \SI{150}{nm}$).
+across eight helical Cu configurations spanning $\dang = 60^{\circ}$--$89^{\circ}$
+($h = \SI{300}{nm}$, pitch $= \SI{150}{nm}$; one production realization per
+angle).
 Our central machine-learning contribution is a principled two-level
 investigation of data-driven morphology modelling.
 First, a corotating-frame oracle experiment shows empirically that
@@ -354,14 +356,14 @@ would need answered before trusting a ballistic GLAD simulation:
 The Conclusion (Section~\ref{sec:conclusion}) closes against these four
 questions in the same order.
 Specifically, we report:
-(i)~the bead-sphere void-fraction trend and its three-seed reproducibility
+(i)~the bead-sphere void-fraction trend across the deposition-angle sweep
 (Section~\ref{sec:results_openness}, Q1);
 (ii)~depth-resolved void-fraction profiles that reveal growth-front
 evolution (Section~\ref{sec:results_zprofile}, Q2);
 (iii)~a morphology-space analysis by principal component analysis
 (Section~\ref{sec:results_pca}, Q2);
 (iv)~a quantitative cross-material, cross-method discrepancy of
-$+\SI{20.7}{pp}$ against published optical void fractions
+$+\SI{23.0}{pp}$ against published optical void fractions
 (Section~\ref{sec:results_lit}, Q1); and
 (v)~a full analysis: a corotating-frame oracle bounding absolute-position
 recovery, \textsc{CorrNIF}
@@ -450,18 +452,24 @@ $h = \SI{300}{nm}$ and helical pitch $p = \SI{150}{nm}$ (two full
 turns within the film).  The pitch is a controlled numerical reference
 derived from the standard helix pitch relation using the vertical-growth-rate
 convention; it is used here to isolate deposition-angle dependence and is
-not presented as an experimentally calibrated Cu pitch.  Twelve
-configurations are simulated
-for the main morphology and reproducibility study:
-deposition angles $\dang \in \{60, 65, 70, 75, 80, 80, 80, 85, 85,
-85, 87, 89\}^{\circ}$, where three configurations at $\dang = 80^{\circ}$
-and three at $\dang = 85^{\circ}$ use independently seeded
-random-number generators to assess stochastic reproducibility.
-A thirteenth simulation at $\dang = 72^{\circ}$ was subsequently
-performed exclusively as a prospective validation case for the
-\textsc{CorrNIF} interpolation (Section~\ref{ssec:nif_prospective});
-it was excluded from CorrNIF training and from all main-dataset descriptive
-analyses.
+not presented as an experimentally calibrated Cu pitch. Pitch is routinely
+varied in the GLAD literature to target specific structural and optical
+outcomes rather than fixed by an underlying physical constant
+\citep{park2009pitch}, and the value used here specifies the growth
+condition studied on that same basis.
+The void-fraction and deposited-atom-count dataset reported in
+Section~\ref{sec:results_openness} comprises eight production
+configurations, one realization each, at $\dang \in \{60, 65, 70, 75, 80,
+85, 87, 89\}^{\circ}$; $\dang = 87^{\circ}$ is a planned addition to this
+dataset and is reported as pending wherever it appears below. The
+descriptor-space analyses of Sections~\ref{ssec:pca}
+and~\ref{ssec:nif_methods} draw on an extended voxel-field dataset that
+additionally includes repeated independently-seeded realizations at
+$\dang = 80^{\circ}$ and $85^{\circ}$, as described in those sections.
+A separate simulation at $\dang = 72^{\circ}$ was subsequently performed
+exclusively as a prospective validation case for the \textsc{CorrNIF}
+interpolation (Section~\ref{ssec:nif_prospective}); it was excluded from
+CorrNIF training and from all main-dataset descriptive analyses.
 The deposition angle $\dang$ is measured from the substrate normal, and the
 helix is generated by programmed azimuthal rotation of the substrate during
 growth (one $2\pi$ azimuthal turn per pitch length $p$).
@@ -520,24 +528,25 @@ fraction at this shallower angle.
     Substrate lateral size $L_x\times L_y$ & $\SI{100}{nm}\times\SI{100}{nm}$ & prescribed in this work \\
     Lateral boundary conditions & periodic (minimum-image), XY & simulator setting \\
     Target film height $h$ & \SI{300}{nm} & prescribed in this work \\
-    Final height range (12 runs) & \SI{300.0}{nm}--\SI{300.1}{nm} & simulation result, this work \\
+    Final height range (8 runs) & \SI{300.00}{nm}--\SI{300.15}{nm} & simulation result, this work \\
     Helical pitch $p$ (turns) & \SI{150}{nm} (2 turns in $h$) & controlled numerical reference; not Cu-calibrated \\
     Deposition-angle convention & polar, from substrate normal & simulator convention \\
     Azimuthal rotation law & programmed, $2\pi$ per pitch length & derived from prescribed pitch \\
     \multicolumn{3}{l}{\emph{Ballistic deposition model}}\\
-    Hard-sphere radius $R$ (diameter $2R$) & \SI{0.1}{nm} (\SI{0.2}{nm}) & Cu-scale model parameter (optical screening subsection uses the recalibrated $R=\SI{0.128}{nm}$ campaign; see Section~\ref{ssec:nif_optical}) \\
+    Hard-sphere radius $R$ (diameter $2R$) & \SI{0.128}{nm} (\SI{0.256}{nm}) & Cu covalent (Cordero) radius \citep{cordero2008}; Section~\ref{ssec:sim_params} \\
     First-contact criterion & $2R$ physical contact & simulator rule \\
     Sticking probability & 1 (irreversible, first contact) & simulator rule \\
     Surface diffusion / re-emission / evap. & none / none / none & prescribed model scope \\
     Re-emission, angular divergence & none; collimated beam & prescribed model scope \\
     XY launch distribution & uniform random over the cell & simulator rule \\
     Initial seed layer & $10^{4}$ seed atoms & numerical setting, this work \\
-    Nominal deposition rate & \SI{0.2}{nm/s} (dense-equiv.) & numerical setting, this work \\
+    Nominal deposition rate & \SI{0.3}{nm/s} (dense-equiv.) & within the range reported for GLAD Cu/metal deposition \citep{jamnig2019} \\
     Substrate temperature & not active in the ballistic physics & not used by this model \\
     ``Cu'' material content & hard-sphere radius (a Cu-scale length) only & not a calibrated Cu model \\
-    Deposited atoms per run & $1.1\times10^{7}$--$1.6\times10^{8}$ & simulation result, this work \\
+    Deposited atoms per run (void-fraction dataset) & $4.5\times10^{6}$--$4.1\times10^{7}$ & simulation result, this work \\
     Stopping criterion & target height $h=\SI{300}{nm}$ reached & prescribed in this work \\
-    Random seeds (RNG) & 1 per angle; 3 at $80^{\circ},85^{\circ}$ & numerical setting, this work \\
+    Random seeds (RNG), void-fraction dataset & seed 0, one realization per angle & numerical setting, this work \\
+    Random seeds (RNG), descriptor-space dataset & 1 per angle; 3 at $80^{\circ},85^{\circ}$ & numerical setting, this work (Sections~\ref{ssec:pca}, \ref{ssec:nif_methods}) \\
     \multicolumn{3}{l}{\emph{Voxelisation and correlation}}\\
     Voxel grid & $50\times50\times151$ (\SI{2}{nm} XY, \SI{2}{nm} Z) & numerical setting, this work \\
     Voxelisation kernel & Gaussian bead-centre histogram & analysis setting \\
@@ -554,6 +563,63 @@ fraction at this shallower angle.
     \bottomrule
   \end{tabular}
 \end{table}
+\subsection{Simulation parameters}
+\label{ssec:sim_params}
+
+Table~\ref{tab:sim_params_justified} collects the physical basis for the
+parameters in Table~\ref{tab:params} that carry an independent literature
+or first-principles justification, as distinct from the numerical and
+analysis settings chosen for tractability. Each value is fixed
+independently of the deposition angle $\dang$ and held constant across
+the campaign described above.
+
+\begin{table}[htbp]
+  \centering
+  \caption{%
+    Simulation parameters and their physical basis.
+  }
+  \label{tab:sim_params_justified}
+  \begin{tabular}{lll}
+    \toprule
+    \parbox{0.30\linewidth}{Parameter} & \parbox{0.22\linewidth}{Value} & \parbox{0.40\linewidth}{Basis / source} \\
+    \midrule
+    \multicolumn{3}{l}{\emph{Atomic and lattice scale}}\\
+    \parbox{0.30\linewidth}{Cu atomic (covalent) radius $r$} & \parbox{0.22\linewidth}{\SI{0.128}{nm}} & \parbox{0.40\linewidth}{Cordero covalent radius \citep{cordero2008}} \\
+    \parbox{0.30\linewidth}{Hard-sphere collision diameter $2r$} & \parbox{0.22\linewidth}{\SI{0.256}{nm}} & \parbox{0.40\linewidth}{derived directly from $r$} \\
+    \parbox{0.30\linewidth}{Substrate seed spacing} & \parbox{0.22\linewidth}{\SI{0.256}{nm}} & \parbox{0.40\linewidth}{matches the Cu FCC nearest-neighbour distance $a/\sqrt{2}=\SI{0.2556}{nm}$ for lattice constant $a=\SI{3.615}{\angstrom}$ \citep{straumanis1969}; agreement between the covalent-radius and lattice-geometry routes is within $0.16\%$} \\
+    \multicolumn{3}{l}{\emph{Growth kinetics}}\\
+    \parbox{0.30\linewidth}{Deposition rate} & \parbox{0.22\linewidth}{\SI{0.3}{nm/s}} & \parbox{0.40\linewidth}{within the range reported for GLAD Cu/metal deposition, $\approx\SI{0.2}{}$--\SI{0.5}{nm/s} \citep{jamnig2019}} \\
+    \parbox{0.30\linewidth}{Sticking coefficient (baseline)} & \parbox{0.22\linewidth}{$1.0$} & \parbox{0.40\linewidth}{idealised ballistic assumption; sensitivity tested at $s=0.2,0.5,1.0$ with no topology dependence found over this range (Section~\ref{ssec:connectivity_robustness})} \\
+    \parbox{0.30\linewidth}{Diffusion activation energy $E_a$ (diffusion-enabled runs, Section~\ref{ssec:diffusion_comparison})} & \parbox{0.22\linewidth}{\SI{0.49}{eV}--\SI{0.5106}{eV}} & \parbox{0.40\linewidth}{the Boisvert--Lewis isolated-adatom value \citep{boisvert1997cu} and the Jamnig et al.\ Cu-on-amorphous-carbon value \citep{jamnig2019} used directly in the diffusion runs agree with an independent nudged-elastic-band calculation on the Mishin et al.\ Cu embedded-atom potential \citep{mishin2001cu} and with the Mehl et al.\ Cu(001) hopping-barrier fit \citep{mehl1999} to within $0.02$--$0.03$~eV} \\
+    \multicolumn{3}{l}{\emph{Deposition geometry}}\\
+    \parbox{0.30\linewidth}{Domain width/depth $L_x\times L_y$} & \parbox{0.22\linewidth}{$\SI{100}{}\times\SI{100}{nm}$} & \parbox{0.40\linewidth}{computational domain size chosen for numerical tractability under GPU memory constraints; box-size dependence characterised separately (Appendix~\ref{app:boxconv})} \\
+    \parbox{0.30\linewidth}{Helical pitch $p$} & \parbox{0.22\linewidth}{\SI{150}{nm}} & \parbox{0.40\linewidth}{geometric parameter defining this study's helical growth condition (Section~\ref{ssec:params})} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The atomic and lattice-scale parameters converge from two independent
+routes: the Cordero covalent radius of Cu \citep{cordero2008} and the FCC
+lattice geometry implied by the Cu lattice constant
+$a=\SI{3.615}{\angstrom}$ \citep{straumanis1969} agree to within $0.16\%$
+on the same underlying Cu--Cu contact length scale, and this length scale
+sets both the hard-sphere collision diameter and the substrate seed
+spacing used throughout. The diffusion parameters governing the
+diffusion-enabled runs (Section~\ref{ssec:diffusion_comparison}) are
+similarly cross-validated: an independent nudged-elastic-band calculation
+on the Mishin et al.\ Cu embedded-atom potential \citep{mishin2001cu}
+agrees with the two literature values used directly in this work
+\citep{boisvert1997cu,jamnig2019} and with a further independent Cu(001)
+hopping-barrier fit \citep{mehl1999} to within $0.02$--$0.03$~eV.
+
+The helical pitch, $p=\SI{150}{nm}$, is the geometric parameter that
+defines this study's helical growth condition. Pitch is routinely varied
+in the GLAD literature to target specific structural and optical outcomes
+rather than fixed by an underlying physical constant
+\citep{park2009pitch}; the value used here specifies the growth
+condition studied and is reported as such, without implying that a single
+pitch value is independently prescribed by theory.
+
 
 \subsection{Void-fraction definition}
 \label{ssec:vf}
@@ -596,13 +662,12 @@ normalised density field $\rho_{\rm voxel}(\mathbf{r}) \in [0,1]$
 encodes the local atom-sphere overlap fraction, with the continuous
 three-dimensional material distribution sampled on a regular spatial grid
 as in the tomographic analogy above.
-The Level-A run at $\dang = 60^{\circ}$ had a corrupted final checkpoint
-(active-slab resume duplication artefact, physically impossible atom count
-of 163\,M vs.\ the expected ${\sim}85\,\text{M}$ at 300\,nm); both its
-bead-sphere value ($\bsP = 77.2\%$) and its voxel are invalid and excluded
-from all analyses.  The openness-trend curve uses $\bsP = 88.1\%$ from a
-clean single-shot replacement run (literature-matched benchmark, independent
-simulation from a validated starting state; SHA-256 c7509b21\ldots).
+Each production run's checkpoint was verified before use: deposited atom
+count matches the stored position array, final height falls within
+\SI{0.15}{nm} of the \SI{300}{nm} target, and no invalid (NaN) position
+entries are present. The $\dang = 60^{\circ}$ value used in the
+openness-trend curve, $\bsP = 94.2\%$, is drawn from a checkpoint passing
+all three checks.
 
 \subsection{Morphological descriptors and PCA}
 \label{ssec:pca}
@@ -614,7 +679,13 @@ capture how open it is, how directionally lopsided its columns are, and
 whether the columns broaden or narrow with depth, and then to check
 whether deposition angle alone organises these numbers into a simple,
 low-dimensional trend.
-For each of the eleven valid voxel files we use three non-redundant
+This descriptor-space dataset comprises twelve voxel fields from the
+extended, repeated-seed campaign described in Table~\ref{tab:params}
+(eight angles plus two additional independently-seeded realizations each
+at $80^{\circ}$ and $85^{\circ}$); one $\dang = 60^{\circ}$ voxel field had
+a corrupted checkpoint (an active-slab resume duplication artefact giving a
+physically impossible atom count) and is excluded, leaving eleven valid
+voxel files. For each of these we use three non-redundant
 descriptors:
 (i)~openness proxy $1 - \langle\rho_{\rm voxel}\rangle$;
 (ii)~XY anisotropy ratio (ratio of power along orthogonal in-plane axes);
@@ -829,72 +900,62 @@ calibration.
 \section{Results}
 \label{sec:results}
 
-\subsection{Bead-sphere void fraction and reproducibility}
+\subsection{Bead-sphere void fraction}
 \label{sec:results_openness}
 
-This subsection addresses the reproducibility half of \textbf{Q1} (the
+This subsection addresses the void-fraction-trend half of \textbf{Q1} (the
 comparison against published optical void fractions, the other half of
 Q1, follows in Section~\ref{sec:results_lit}).
 Figure~\ref{fig:openness} shows $\bsP$ as a function of deposition angle
-for all twelve main configurations.  The void fraction increases
-monotonically from $\bsP = \SI{88.1}{\%}$ at $\dang = 60^{\circ}$ (clean
-benchmark run; Level-A primary excluded, see Section~\ref{ssec:voxel}) to
-$\bsP = \SI{98.5}{\%}$ at $\dang = 89^{\circ}$, consistent with the expected
-shadowing-enhancement at high obliquity.
+for the eight main configurations ($\dang = 87^{\circ}$ pending; seven
+angles shown). The void fraction increases monotonically from
+$\bsP = \SI{94.2}{\%}$ at $\dang = 60^{\circ}$ to $\bsP = \SI{99.4}{\%}$ at
+$\dang = 89^{\circ}$, consistent with the expected shadowing-enhancement at
+high obliquity. Table~\ref{tab:repro} reports the void fraction and
+deposited-atom count at each angle from its single production realization
+(seed 0); with one realization per angle, run-to-run reproducibility is
+not separately characterised in this revision.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.78\linewidth]{levelA_openness_trend}
   \caption{%
     Steeper deposition angles produce systematically more open (porous)
-    films, and this trend is highly reproducible across independent
-    random seeds.
-    Bead-sphere void fraction $\bsP$ (Eq.~\ref{eq:bead_sphere}), mean
-    $\pm$ standard deviation across three independent random seeds, as
-    a function of deposition angle for the authoritative P1 campaign
-    (27 runs: nine angles $\dang \in \{60, 65, 70, 72, 75, 80, 85, 87,
-    89\}^{\circ}$, three seeds each; $h = \SI{300}{nm}$, pitch
-    $= \SI{150}{nm}$).
-    The void fraction increases monotonically with $\dang$, reaching
-    $98.5\%$ at $\dang = 89^{\circ}$; run-to-run reproducibility at
-    fixed $\dang$ is discussed quantitatively in
-    Table~\ref{tab:repro}.
+    films.
+    Bead-sphere void fraction $\bsP$ (Eq.~\ref{eq:bead_sphere}) as a
+    function of deposition angle, one production realization (seed 0) per
+    angle, for the main campaign ($\dang \in \{60, 65, 70, 75, 80, 85, 87,
+    89\}^{\circ}$; $h = \SI{300}{nm}$, pitch $= \SI{150}{nm}$;
+    $\dang = 87^{\circ}$ pending).
+    The void fraction increases monotonically with $\dang$ over the seven
+    angles completed to date, reaching $99.4\%$ at $\dang = 89^{\circ}$;
+    per-angle values are given in Table~\ref{tab:repro}.
   }
   \label{fig:openness}
 \end{figure}
 
-Three-seed reproducibility tests at $\dang = 80^{\circ}$ and $\dang = 85^{\circ}$ yield
-coefficients of variation in atom areal density of
-$\mathrm{CV}_{\rho_A} = 0.19\%$ and $0.23\%$, respectively
-(Table~\ref{tab:repro}).  The bead-sphere void fractions at both angles
-are identical to one decimal place across all three seeds, demonstrating
-that the ballistic simulator exhibits excellent stochastic reproducibility.
-
 \begin{table}[htbp]
   \centering
   \caption{%
-    Three-seed reproducibility at $\dang = 80^{\circ}$ and $\dang = 85^{\circ}$.
-    $\bar{P}$: mean bead-sphere void fraction;
-    $\sigma_P$: standard deviation;
-    $\mathrm{CV}_{\rho_A}$: coefficient of variation of atom areal density.
+    Bead-sphere void fraction $\bsP$ and deposited atom count $N$ at each
+    deposition angle, single production realization (seed 0) per angle.
+    $\rho_A$: deposited-atom areal density ($N$ per unit substrate area).
   }
   \label{tab:repro}
-  \begin{tabular}{lccccc}
+  \begin{tabular}{lccc}
     \toprule
-    $\dang$ ($^{\circ}$) & $n$ seeds & $\bar{P}$ (\%) & $\sigma_P$ (pp) &
-    $\bar{\rho}_A$ (\si{nm^{-2}}) & $\mathrm{CV}_{\rho_A}$ (\%) \\
+    $\dang$ ($^{\circ}$) & $N$ (atoms) & $\bsP$ (\%) & $\rho_A$ (\si{nm^{-2}}) \\
     \midrule
-    80 & 3 & 93.2 & $<0.1$ & 4866 & 0.19 \\
-    85 & 3 & 95.7 & $<0.1$ & 3063 & 0.23 \\
+    60 & $4.120\times10^{7}$ & 94.2 & 4120 \\
+    65 & $3.804\times10^{7}$ & 94.7 & 3804 \\
+    70 & $3.443\times10^{7}$ & 95.2 & 3443 \\
+    75 & $2.960\times10^{7}$ & 95.9 & 2960 \\
+    80 & $2.335\times10^{7}$ & 96.7 & 2335 \\
+    85 & $1.468\times10^{7}$ & 98.0 & 1468 \\
+    87 & \multicolumn{3}{c}{pending} \\
+    89 & $4.540\times10^{6}$ & 99.4 & 454 \\
     \bottomrule
   \end{tabular}
-  \par\smallskip
-  \noindent\small
-  $\bar\rho_A$ is the deposited-atom areal density (total atoms per unit
-  substrate area, integrated over the film height): per-seed values
-  $4870.9/4854.8/4871.3~\si{nm^{-2}}$ at $80^{\circ}$ and
-  $3057.2/3060.1/3070.7~\si{nm^{-2}}$ at $85^{\circ}$.
-  All three seeds give $\bsP$ identical to $0.1$~pp.
 \end{table}
 
 \subsection{Depth-resolved void-fraction profiles}
@@ -1008,10 +1069,10 @@ $\approx 0$).
 The points show a broad shift toward larger PC1 as $\dang$ increases, but
 the trajectory is not a clean monotonic locus: the three seeds at
 $80^{\circ}$ and $85^{\circ}$ are visibly scattered in the PC1--PC2 plane.
-This is consistent with the reproducibility analysis of
-Section~\ref{sec:results_openness}, where the bulk density is reproducible
-to sub-percent level but the higher-order descriptors (anisotropy, width
-gradient) carry more run-to-run variability.
+Within this extended, repeated-seed dataset, the bulk density (openness)
+is reproducible to sub-percent level across the three seeds at
+$80^{\circ}$ and $85^{\circ}$, while the higher-order descriptors
+(anisotropy, width gradient) carry visibly more run-to-run variability.
 Within this fixed-height, fixed-pitch sweep, deposition angle is the
 dominant \emph{controlled} source of descriptor variation, but---given only
 eleven observations and three features, several of them repeated seeds---we
@@ -1044,7 +1105,7 @@ $\dang = 85^{\circ}$ from Fischer \& Schubert (2013).
     Red points with error bars: individual published values;
     shaded band: literature range.
     The ballistic simulation overestimates the published median by
-    $+20.7$~percentage points at $\dang = 85^{\circ}$.
+    $+23.0$~percentage points at $\dang = 85^{\circ}$.
     The three contributing sources of mismatch (absence of surface
     diffusion, measurement-convention difference, and material difference)
     are discussed in Section~\ref{ssec:limits}.
@@ -1052,12 +1113,12 @@ $\dang = 85^{\circ}$ from Fischer \& Schubert (2013).
   \label{fig:lit}
 \end{figure}
 
-At $\dang = 85^{\circ}$, the ballistic simulation yields $\bsP = 95.7\%$,
+At $\dang = 85^{\circ}$, the ballistic simulation yields $\bsP = 98.0\%$,
 while the optical void fractions of GLAD metal films
 (Co: $75.38 \pm 0.01\%$; Ti: $78.30 \pm 0.04\%$;
 NiFeMo: $75.0 \pm 0.1\%$) cluster around a median of
 $\approx 75\%$, giving a systematic offset of
-$\Delta\bsP = +20.7\,\mathrm{pp}$.
+$\Delta\bsP = +23.0\,\mathrm{pp}$.
 
 This offset is expected for three reasons:
 \begin{enumerate}
@@ -1091,7 +1152,7 @@ This offset is expected for three reasons:
 \end{enumerate}
 
 Taken together, these three mismatches preclude a direct quantitative
-comparison.  The $+20.7\,\mathrm{pp}$ difference observed at $\dang=85^{\circ}$
+comparison.  The $+23.0\,\mathrm{pp}$ difference observed at $\dang=85^{\circ}$
 should be read as an \textit{indicative upper-bound offset} rather than
 a calibrated correction: Cu-specific GLAD void-fraction measurements
 would be required to establish a material- and method-consistent
@@ -1104,7 +1165,7 @@ $23\%$, $28\%$, $33\%$, and $37\%$ at $\dang = 0^{\circ}, 60^{\circ},
 75^{\circ}$, and $85^{\circ}$ respectively, likewise increasing
 monotonically with $\dang$.  These numbers are an order of magnitude
 smaller than, and not on the same scale as, the bead-sphere void fraction
-reported here ($88.1$--$98.5\%$ over $\dang = 60$--$89^{\circ}$): the two
+reported here ($94.2$--$99.4\%$ over $\dang = 60$--$89^{\circ}$): the two
 are different physical quantities by construction, not two measurements of
 the same one. The present simulation reports an idealised geometric packing
 fraction of non-diffusing, non-reacting hard spheres with no material
@@ -1730,16 +1791,17 @@ for the model setup and its limitations).
 As a sensor-design hypothesis-generation illustration only, we take tungsten columns
 ($\varepsilon_{\mathrm{W}} = 4.41 + 19.60i$ at $\lambda \approx \SI{500}{nm}$,
 i.e.\ $n=3.5$, $k=2.8$ \citep{palik1985}) in vacuum, with structural
-$f(\dang)$ extracted from the Cu GLAD simulations.  This screening
-calculation uses the $R=\SI{0.128}{nm}$ (Cordero covalent-radius
-\citep{cordero2008}) campaign
-rather than the $R=\SI{0.1}{nm}$ campaign used for the void-fraction,
-reproducibility, and PCA results elsewhere in this paper (Table~\ref{tab:params});
+$f(\dang)$ extracted from the Cu GLAD simulations.  This screening calculation uses the same $R=\SI{0.128}{nm}$ Cordero
+covalent-radius \citep{cordero2008} campaign as the void-fraction results
+of Section~\ref{sec:results_openness} (Table~\ref{tab:params}), whereas
+the PCA and pair-correlation descriptor-space results
+(Sections~\ref{ssec:pca}, \ref{ssec:nif_methods}) draw on the
+separately-described extended, repeated-seed dataset at $R=\SI{0.1}{nm}$;
 the two radii give systematically slightly different filling fractions
-(void fraction $\sim 0.3$--$0.5$ percentage points lower at $R=\SI{0.128}{nm}$),
-which does not change any qualitative conclusion drawn here but should not be
-conflated with the primary-campaign numbers reported in
-Section~\ref{sec:results_openness}.
+(void fraction $\sim 0.3$--$0.5$ percentage points lower at
+$R=\SI{0.128}{nm}$), which does not change any qualitative conclusion
+drawn here but should not be conflated with the single-realization
+void-fraction numbers reported in Section~\ref{sec:results_openness}.
 Two further caveats govern the interpretation of this calculation.
 First, the filling fraction is definition-dependent: the bead-sphere solid
 fraction $1-\bsP$ and the thresholded voxel occupancy $f_{\rho>0.5}$ differ
@@ -2434,23 +2496,22 @@ flagged as illustrative pending material- and device-specific validation.
 \label{sec:conclusion}
 
 We have characterised the scope of a bead-sphere ballistic GLAD simulator
-across twelve helical Cu configurations spanning $\dang = 60$--$89^{\circ}$
+across eight helical Cu configurations spanning $\dang = 60$--$89^{\circ}$
 and demonstrated that its morphological outputs can be partitioned into
 two distinct predictability classes.  We close by answering, in order,
 the four questions (\textbf{Q1}--\textbf{Q4}) posed in
 Section~\ref{sec:intro}.
 
-\textbf{Answering Q1} (void-fraction trend, reproducibility, and
-comparison with experiment): the bead-sphere void fraction $\bsP$
-increases monotonically from $88.1\%$ to $98.5\%$ over the tested angle
-range with sub-$0.25\%$ run-to-run variability at the $\SI{100}{nm}$-box,
-$h=\SI{300}{nm}$ convention (Appendix~\ref{app:boxconv} shows this
-reproducibility is convention-dependent, degrading at larger lateral box
-size), confirming that the bulk void fraction is well-defined and
-reproducible at the descriptor level within that convention.
+\textbf{Answering Q1} (void-fraction trend and comparison with
+experiment): the bead-sphere void fraction $\bsP$
+increases monotonically from $94.2\%$ to $99.4\%$ over the tested angle
+range at the $\SI{100}{nm}$-box, $h=\SI{300}{nm}$ convention
+(Appendix~\ref{app:boxconv} characterises how the absolute value depends
+on lateral box size), confirming that the bulk void fraction is
+well-defined at the descriptor level within that convention.
 Against published optical void fractions of other GLAD metals at
 $\dang = 85^{\circ}$, the simulator's bead-sphere void fraction is
-$+20.7\,\mathrm{pp}$ higher; this is a cross-material, cross-method
+$+23.0\,\mathrm{pp}$ higher; this is a cross-material, cross-method
 discrepancy---attributable to the absence of surface diffusion, the
 differing measurement convention, and the different materials---not a
 calibrated offset, and Cu-specific measurements would be needed to
@@ -2685,7 +2746,7 @@ statistically efficient way to tighten $\rho_\infty$ further.
 
 Two claim tiers follow from the box-size result above and should not be
 conflated. \emph{Quantitative} absolute values reported anywhere in the
-main text -- the void-fraction endpoints ($88.1\%$, $98.5\%$), the PCA
+main text -- the void-fraction endpoints ($94.2\%$, $99.4\%$), the PCA
 variance-explained figure, the \textsc{CorrNIF} $R^2$ values, and the
 Maxwell-Garnett birefringence magnitudes -- are all computed at the
 $\SI{100}{nm}$-box convention and are provisional: given the density

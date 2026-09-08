@@ -170,15 +170,25 @@ if sys.platform == "win32":
 GPU_AVAILABLE = False
 xp = np   # default to NumPy
 
+# PERF-1 (2026-09-06, validated). The CUDA managed-memory allocator below lets allocations
+# page to host RAM when 4GB VRAM is exhausted (needed for box >= ~175nm at r=0.128). But
+# managed memory is ~13x SLOWER than a plain device pool for this sim's rebuild-heavy alloc
+# pattern when VRAM is NOT exhausted -- measured on a real box=100 run: plain 19,740 rays/s
+# vs managed 1,488 rays/s, and the two runs produced BYTE-IDENTICAL atom positions
+# (max |delta| = 0). See 01_GLAD_SIMULATION/PERF1_ALLOCATOR_VALIDATION_20260906/. Selection:
+#   1. env var GLAD_GPU_ALLOCATOR = "plain" | "managed"  -> pins the choice
+#   2. otherwise GLADV3Simulator.__init__ auto-picks by box_width (plain if <=160nm)
+#   3. module default here stays MANAGED so any import-only caller keeps today's behavior.
+_ALLOC_ENV = os.environ.get("GLAD_GPU_ALLOCATOR", "").strip().lower()
+_ALLOC_ENV_FORCED = _ALLOC_ENV in ("plain", "managed")
+
 try:
     import cupy as cp
-    # 2026-07-03: switched from a plain device-memory pool to CUDA Unified
-    # (managed) memory. This lets allocations transparently page out to host
-    # RAM when VRAM (4GB on this GPU) is exhausted, instead of hard-failing.
-    # Verified working standalone (cupy 14.1.0): allocated 5.6GB > 4GB VRAM
-    # via managed memory. Does not change simulation physics -- only where
-    # the data physically resides; may be slower than pure VRAM when paging.
-    cp.cuda.set_allocator(cp.cuda.MemoryPool(cp.cuda.malloc_managed).malloc)
+    if _ALLOC_ENV == "plain":
+        cp.cuda.set_allocator(cp.cuda.MemoryPool().malloc)
+        print("[GPU-FORCE] allocator: PLAIN device MemoryPool (GLAD_GPU_ALLOCATOR=plain)", flush=True)
+    else:
+        cp.cuda.set_allocator(cp.cuda.MemoryPool(cp.cuda.malloc_managed).malloc)
     xp = cp
     GPU_AVAILABLE = True
     _dev = cp.cuda.Device(0)
@@ -247,6 +257,19 @@ MATERIAL_MELTING_POINTS_K = {
     'CuO': 1599.0,   # approximate oxide reference
 }
 
+# Per-material atom/bead radius default (nm). Cu=0.128nm is the pre-existing,
+# already-correct value (Cordero et al. 2008 covalent radius, kept as-is -- see
+# AUTHOR_RADIUS below). Other entries use the SAME source/convention, matching this
+# project's own canonical table at 02_PINN_NIF/P3_ML/atomic_radius_lookup.py
+# (COVALENT_RADIUS_PM, Cordero 2008), converted pm -> nm.
+# Found 2026-08-23: `material` was previously metadata-only for atom size -- every
+# non-Cu-labeled run used Cu's 0.128nm radius regardless of the material field.
+# Explicit author_radius_nm in a config always overrides this (see load_config()).
+MATERIAL_ATOM_RADIUS_NM = {
+    'Cu': 0.128,   # kept exactly as the pre-existing AUTHOR_RADIUS value, not overwritten
+    'Ag': 0.145,   # Cordero 2008 covalent radius, 145 pm (atomic_radius_lookup.py COVALENT_RADIUS_PM['Ag'])
+}
+
 # ── Native Helical-GLAD dynamics ─────────────────────────────────────────────
 # These govern the dynamic flux rotation and the 4D timestamp schema.
 # Both are exposed in glad_config.yaml under the [physics] section.
@@ -283,13 +306,30 @@ def load_config(yaml_path: str) -> dict:
         'temperature': 300.0,
         'melting_point_K': None,
         'source_distance_cm': None,
+        # Physical source aperture (boat/crucible/target radius). Additive: when both
+        # this and source_distance_cm are provided, and angular_sigma_deg is not
+        # explicitly set, angular_sigma_deg defaults to degrees(atan(source_radius_cm /
+        # source_distance_cm)) instead of the arbitrary 0.0/free-parameter default.
+        'source_radius_cm': None,
         'rotation_rpm': None,
         'checkpoint_height_interval': 50.0,
         'checkpoint_particle_interval': 20_000_000,
         'checkpoint_dir': './checkpoints',
         'checkpoint_filename': 'checkpoint_v3.h5',
         'allow_legacy_resume': False,
-        'substrate_spacing': 1.0,
+        # substrate_spacing: initial seed-monolayer grid spacing (sets seed_atoms count
+        # via initialise_substrate() below), NOT a bulk/steady-state contact distance
+        # (that role belongs to COLLISION_DIAMETER=2R, unchanged). Was 1.0nm with no
+        # traceable origin (R03_GEOMETRY_PARAMETER_LITERATURE_AUDIT_20260902.md flagged
+        # HIGH risk, no Cu lattice/literature basis). Corrected 2026-09-02 to 0.256nm =
+        # 2*AUTHOR_RADIUS, crystallographically grounded two independent ways: (1) Cordero
+        # et al., Dalton Trans. 2008, 2832-2838, Cu covalent radius 0.128nm, doubled; (2)
+        # Cu FCC lattice constant a=3.615A (Straumanis & Yu, Acta Cryst. A25, 676 (1969);
+        # Kittel, Introduction to Solid State Physics) nearest-neighbor distance a/sqrt(2)
+        # = 0.2556nm -- agrees with (1) to within 0.16%. Forward-looking only: does NOT
+        # retroactively change any already-run campaign/checkpoint (those keep whatever
+        # substrate_spacing their own config specified/defaulted to at the time).
+        'substrate_spacing': 0.256,
         'cell_size': 1.0,
         'active_window_height': 120.0,
         # Optional smaller active window applied ONLY when resuming from a
@@ -301,8 +341,70 @@ def load_config(yaml_path: str) -> dict:
         'enable_surface_diffusion': False,
         'diffusion_radius': 0.5,   # nm
         'diffusion_hops': 5,
+        # Cap on the per-batch physical-diffusion-model hop count (GPU-cost control, see
+        # `_step_batch`). Was previously READ via self.cfg.get(...) but never populated from
+        # YAML by load_config() -- a real bug: any user attempt to override it in physics: was
+        # silently ignored. Fixed 2026-08-24 (see P1_BETA_AND_PD_DISCREPANCY_AUDIT_20260824.md
+        # H7). Default unchanged (200), so this fix alone does not change any already-run
+        # result -- it only makes the parameter actually overridable, which it always should
+        # have been.
+        'diffusion_dwell_hops_cap': 200,
         'activation_energy': 0.041,  # eV
         'use_arrhenius': True,
+        # Physically-calibrated diffusion model (additive; default OFF reproduces the
+        # toy fixed-hop-count kernel above byte-for-byte). See
+        # 01_GLAD_SIMULATION/P1_PHYSICAL_DIFFUSION_MODEL_SCOPE_20260822.md.
+        'use_physical_diffusion_model': False,
+        'nu0_hz': 8.2e11,   # attempt frequency [Hz]; Jamnig 2019 Cu-on-C cluster-diffusion default
+        # D1 (2026-09-07): resolve diffusion-kernel same-batch blindness. The parallel
+        # DIFFUSION_KERNEL runs one thread per diffusing atom against the FROZEN pre-batch
+        # snapshot; threads never see each other's in-flight hops, so two same-batch atoms
+        # can hop to < collision_diameter apart unnoticed (confirmed: 97.8-100 % of genuine
+        # overlaps are intra-batch -- D1_DIFFUSION_KERNEL_CONTACT_RECHECK_DESIGN_20260907.md).
+        # When True, a deterministic deposition-order post-kernel pass REVERTS any post-hop
+        # atom that landed within cd of an already-accepted atom (established structure or an
+        # earlier same-batch atom) back to its pre-hop position -- i.e. that atom did not hop
+        # this batch. Revert, NOT lift: lifting to a z-floor applies an uphill displacement
+        # the kernel's own dz>=0||Boltzmann acceptance never tested and re-introduces the
+        # height ratchet. Only ever active when enable_surface_diffusion is also True.
+        #
+        # DISABLED 2026-09-07 (default -> False): this pass as written breaks the
+        # simulator's coordinate/wrapping invariant. A/B at box=40/alpha=85/diff-ON:
+        # fix OFF -> 0 atoms outside [0,box]; fix ON -> ~30 % outside, x reaching 149 nm
+        # on a 40 nm box. Non-hopping atoms in DIFFUSION_KERNEL keep their raw (possibly
+        # unwrapped ballistic-landing) position; hopping atoms get wrapped by the kernel's
+        # fmodf. Reverting a hop restores the pre-wrap position, so the revert pass leaves
+        # the diffusion batch with mixed wrapped/unwrapped atoms -> at box=100 the grid
+        # loses spatial coherence and runs degenerate (~99 % ray-miss, early termination:
+        # P1_DIFFUSION_DECOMP_C2_20260907 alpha 82/75). The same-batch-blindness problem
+        # is real and still open; the fix needs to preserve wrapping exactly. See
+        # D1_DIFFUSION_KERNEL_CONTACT_RECHECK_DESIGN_20260907.md.
+        'diffusion_resolve_same_batch': False,
+        # Additive geometric post-contact relaxation (default OFF, unchanged rigid-2R-contact
+        # behaviour). See P1_CONTACT_RELAXATION_MODEL_DESIGN_20260823.md.
+        'enable_contact_relaxation': False,
+        'contact_relaxation_radius_nm': None,      # None -> derived as 0.5*collision_diameter
+        'contact_relaxation_num_candidates': 6,
+        'contact_relaxation_bond_energy_eV': 0.35, # Breeman1995 isotropic avg NN bond (100)/(111)
+        # Coordination-shell cutoff factor k (cutoff_radius = k x collision_diameter). PROVEN
+        # (not just asserted) to lie in the geometrically valid first-shell-only window
+        # k in [1, sqrt(2)) for an FCC lattice (d_NN=a/sqrt(2), d_NNN=a, a=3.615A Cu lattice
+        # constant) -- k=1.15 sits at 36.2% of that window, margins +0.038nm/-0.068nm from the
+        # two boundaries. Full derivation, equations, and an honest statement of what is/isn't
+        # proven: P1_COORDINATION_SHELL_CUTOFF_DERIVATION_20260824.md. No historical record of
+        # why 1.15 specifically (vs. another point in the window) was first chosen -- searched
+        # exhaustively (git/design docs/DB), found none; the interval is proven, the specific
+        # interior point is a documented convention, not a literature-derived unique value.
+        'contact_relaxation_coord_shell_factor': 1.15,
+        # Additive diffuse (cosine-law/Lambertian) re-emission for sticking-rejected atoms
+        # (default OFF, unchanged discard-only behaviour). See
+        # P1_DIFFUSE_REEMISSION_MODEL_DESIGN_20260823.md.
+        'enable_diffuse_reemission': False,
+        'max_reemission_attempts': 2,
+        # Same k=1.15 coordination-shell-cutoff convention as contact_relaxation_coord_shell_factor
+        # above -- see that field's comment and P1_COORDINATION_SHELL_CUTOFF_DERIVATION_20260824.md
+        # for the full geometric derivation of the valid [1, sqrt(2)) window this sits inside.
+        'reemission_normal_shell_factor': 1.15,
         'metrics_interval': 100.0,
         'log_file': 'simulation_v3.log',
         'verbose': True,
@@ -320,6 +422,51 @@ def load_config(yaml_path: str) -> dict:
         'random_seed': None,   # None = unseeded (OS entropy); any int (incl. 0) = seeded
         'enable_sticking': False,        # master gate; default OFF == current behaviour
         'sticking_probability': 1.0,     # s in [0,1]; only consulted when enable_sticking=True
+        # Additive local-coordination-dependent hop-barrier correction (default OFF,
+        # unchanged flat-Ea behaviour). REAL fitted parameters from Mehl, Biham, Furman &
+        # Karimi, Phys. Rev. B 60, 2106 (1999) "Models for adatom diffusion on fcc (001)
+        # metal surfaces" -- Model II (Table II), a linear best-fit to the FULL 128-config
+        # EAM hopping-barrier landscape (Table I) for Cu(001): EB = E0 + dNN*n_NN +
+        # dNNN*n_NNN. E0=0.487eV independently cross-validates Boisvert1997's own EAM
+        # isolated-adatom value (0.49eV, A4B01) almost exactly -- two independent methods
+        # agreeing to within 0.003eV. Distance-shell (NN/NNN) neighbour counting is a
+        # coarse-grained proxy in this project's amorphous/ballistic packing (not a rigid
+        # fcc lattice like Mehl's own system) -- documented simplification, not a literal
+        # reproduction of Mehl's exact 7-site configuration classification. Full PDF
+        # absorbed 2026-08-24 (04_LITERATURE_AND_PARAMETER_WORKFLOW/PRIMARY_SOURCE_PDFS/
+        # mehl1999.pdf). See P1_CONTACT_RELAXATION_MODEL_DESIGN_20260823.md.
+        #
+        # THIRD independent cross-check, 2026-08-28 (P4 Phase 1, this project's own
+        # calculation, not a literature lookup): a real NEB hop-barrier calculation on
+        # an isolated Cu(100) adatom, using the Mishin et al. Cu EAM potential (Phys.
+        # Rev. B 63, 224106, 2001), gives 0.5106 eV -- within 0.021-0.024 eV of both
+        # Boisvert (0.49) and Mehl (0.487), i.e. three independent methods (two prior
+        # literature EAM fits, plus this project's own from-scratch NEB run against a
+        # third EAM potential) now agree to ~0.02-0.03 eV. This is a self-consistency
+        # confirmation of E0 below, not a recalibration: it does NOT resolve the
+        # separate, still-open column-tilt-vs-diffusion discrepancy (see
+        # ssec:limits in P1_ballistic_GLAD_scope_limits.tex), and eam_e0_eV is left
+        # unchanged rather than silently replaced. Reference-only constant below is
+        # not read by any hop calculation. Full derivation, robustness check (NEB
+        # method sensitivity), and pre-registered prediction this confirms:
+        # 01_GLAD_SIMULATION/P4_EAM_MD_FUTURE_WORK/P4_EAM_MD_MULTISCALE_CALIBRATION_
+        # PLAN_20260827.md and results/phase1_hop_barrier_result.json.
+        'eam_e0_eV_mishin2001_crosscheck_reference': 0.5106,  # NOT wired into any
+        # calculation; provenance/citation record only, per Phase 4's "additive,
+        # literature-cited... never replacing the existing default silently" rule.
+        'use_eam_neighbor_barrier': False,
+        'eam_e0_eV': 0.487,       # Mehl1999 Table II, Cu Model II
+        'eam_dNN_eV': 0.274,      # Mehl1999 Table II, Cu Model II (per NN bond)
+        'eam_dNNN_eV': 0.027,     # Mehl1999 Table II, Cu Model II (per NNN bond)
+        'eam_nn_cutoff_nm': None,   # None -> derived as collision_diameter (real Cu NN dist., 0.256nm)
+        'eam_nnn_cutoff_nm': None,  # None -> derived as collision_diameter*1.414 (real Cu NNN dist., ~0.362nm)
+        # TWO-TIER GRID (dev, 2026-09-03): registered here and explicitly pulled from
+        # raw['performance'] below -- NOT just referenced via a bare cfg.get(...) default
+        # at the call site, per this file's own documented `diffusion_dwell_hops_cap`
+        # incident (a cfg.get default that silently ignored any YAML override because
+        # load_config never actually copied the key out of raw). See
+        # GRID_REBUILD_PERFORMANCE_OPTIMIZATION_SCOPED_20260903.md.
+        'grid_rebuild_stride': 10,
     }
     if not os.path.exists(yaml_path):
         print(f"[V3] Config file not found ({yaml_path}) -- using defaults", flush=True)
@@ -338,12 +485,15 @@ def load_config(yaml_path: str) -> dict:
         cfg['substrate_spacing']    = raw['simulation'].get('substrate_spacing', cfg['substrate_spacing'])
         cfg['enable_sticking']      = raw['simulation'].get('enable_sticking', cfg['enable_sticking'])
         cfg['sticking_probability'] = float(raw['simulation'].get('sticking_probability', cfg['sticking_probability']))
+        cfg['enable_diffuse_reemission'] = bool(raw['simulation'].get('enable_diffuse_reemission', cfg['enable_diffuse_reemission']))
+        cfg['max_reemission_attempts'] = int(raw['simulation'].get('max_reemission_attempts', cfg['max_reemission_attempts']))
 
     if 'performance' in raw:
         cfg['use_gpu'] = raw['performance'].get('use_gpu', False)
         cfg['batch_size'] = raw['performance'].get('batch_size', 512)
         cfg['cell_size'] = raw['performance'].get('cell_size', cfg['cell_size'])
         cfg['kdtree_rebuild_interval'] = raw['performance'].get('kdtree_rebuild_interval', 1000000)
+        cfg['grid_rebuild_stride'] = raw['performance'].get('grid_rebuild_stride', cfg['grid_rebuild_stride'])
     else:
         cfg['use_gpu'] = False
         cfg['batch_size'] = 512
@@ -357,6 +507,7 @@ def load_config(yaml_path: str) -> dict:
         cfg['temperature']  = raw['deposition'].get('temperature', cfg['temperature'])
         cfg['melting_point_K'] = raw['deposition'].get('melting_point_K', cfg['melting_point_K'])
         cfg['source_distance_cm'] = raw['deposition'].get('source_distance_cm', cfg['source_distance_cm'])
+        cfg['source_radius_cm'] = raw['deposition'].get('source_radius_cm', cfg['source_radius_cm'])
     if 'rotation' in raw:
         cfg['rotation_rpm'] = raw['rotation'].get('rpm', cfg['rotation_rpm'])
     if 'checkpoint' in raw:
@@ -370,8 +521,24 @@ def load_config(yaml_path: str) -> dict:
         cfg['enable_surface_diffusion'] = raw['physics'].get('enable_surface_diffusion', cfg['enable_surface_diffusion'])
         cfg['diffusion_radius']         = raw['physics'].get('diffusion_radius', 5.0) / 10.0  # Å → nm
         cfg['diffusion_hops']           = raw['physics'].get('diffusion_hops', cfg['diffusion_hops'])
+        cfg['diffusion_dwell_hops_cap'] = int(raw['physics'].get('diffusion_dwell_hops_cap', cfg['diffusion_dwell_hops_cap']))
         cfg['activation_energy']        = raw['physics'].get('activation_energy', cfg['activation_energy'])
         cfg['use_arrhenius']            = raw['physics'].get('use_arrhenius', cfg['use_arrhenius'])
+        cfg['use_physical_diffusion_model'] = bool(raw['physics'].get('use_physical_diffusion_model', cfg['use_physical_diffusion_model']))
+        cfg['nu0_hz']                    = float(raw['physics'].get('nu0_hz', cfg['nu0_hz']))
+        cfg['diffusion_resolve_same_batch'] = bool(raw['physics'].get('diffusion_resolve_same_batch', cfg['diffusion_resolve_same_batch']))
+        cfg['enable_contact_relaxation'] = bool(raw['physics'].get('enable_contact_relaxation', cfg['enable_contact_relaxation']))
+        cfg['contact_relaxation_radius_nm'] = raw['physics'].get('contact_relaxation_radius_nm', cfg['contact_relaxation_radius_nm'])
+        cfg['contact_relaxation_num_candidates'] = int(raw['physics'].get('contact_relaxation_num_candidates', cfg['contact_relaxation_num_candidates']))
+        cfg['contact_relaxation_bond_energy_eV'] = float(raw['physics'].get('contact_relaxation_bond_energy_eV', cfg['contact_relaxation_bond_energy_eV']))
+        cfg['contact_relaxation_coord_shell_factor'] = float(raw['physics'].get('contact_relaxation_coord_shell_factor', cfg['contact_relaxation_coord_shell_factor']))
+        cfg['reemission_normal_shell_factor'] = float(raw['physics'].get('reemission_normal_shell_factor', cfg['reemission_normal_shell_factor']))
+        cfg['use_eam_neighbor_barrier']  = bool(raw['physics'].get('use_eam_neighbor_barrier', cfg['use_eam_neighbor_barrier']))
+        cfg['eam_e0_eV']                = float(raw['physics'].get('eam_e0_eV', cfg['eam_e0_eV']))
+        cfg['eam_dNN_eV']               = float(raw['physics'].get('eam_dNN_eV', cfg['eam_dNN_eV']))
+        cfg['eam_dNNN_eV']              = float(raw['physics'].get('eam_dNNN_eV', cfg['eam_dNNN_eV']))
+        cfg['eam_nn_cutoff_nm']         = raw['physics'].get('eam_nn_cutoff_nm', cfg['eam_nn_cutoff_nm'])
+        cfg['eam_nnn_cutoff_nm']        = raw['physics'].get('eam_nnn_cutoff_nm', cfg['eam_nnn_cutoff_nm'])
         cfg['pitch']                    = float(raw['physics'].get('pitch', PITCH))
         cfg['growth_rate']              = float(raw['physics'].get('growth_rate', GROWTH_RATE))
         cfg['active_window_height']     = raw['physics'].get('active_window_height', cfg['active_window_height'])
@@ -380,7 +547,22 @@ def load_config(yaml_path: str) -> dict:
         cfg['thermal_critical_temp']    = raw['physics'].get('thermal_critical_temp', cfg['thermal_critical_temp'])
         if 'author_radius_nm' in raw['physics']:
             cfg['author_radius_nm'] = float(raw['physics']['author_radius_nm'])
-        angular_raw = raw['physics'].get('angular_distribution', {})
+        angular_raw = dict(raw['physics'].get('angular_distribution', {}) or {})
+        # Physically-derived angular_sigma_deg default (source aperture / distance),
+        # used only when the config doesn't already explicitly set angular_sigma_deg.
+        if 'angular_sigma_deg' not in angular_raw and cfg['source_radius_cm'] is not None \
+                and cfg['source_distance_cm'] is not None:
+            derived_sigma = _derive_angular_sigma_deg(
+                float(cfg['source_radius_cm']), float(cfg['source_distance_cm']))
+            if derived_sigma > 10.0:
+                print(f"[WARN] Physically-derived angular_sigma_deg={derived_sigma:.3f} deg "
+                      f"(source_radius_cm={cfg['source_radius_cm']}, "
+                      f"source_distance_cm={cfg['source_distance_cm']}) exceeds the code's "
+                      f"validated cap of 10.0 deg (A1 dry-run patch) -- clamping to 10.0.",
+                      flush=True)
+                derived_sigma = 10.0
+            angular_raw['angular_sigma_deg'] = derived_sigma
+            angular_raw.setdefault('_angular_sigma_source', 'derived_from_source_geometry')
         cfg['angular_distribution'] = _validate_angular_distribution_config(angular_raw, angular_defaults)
         cfg['angular_distribution_enabled'] = bool(cfg['angular_distribution']['enabled'])
         cfg['angular_distribution_type'] = (
@@ -435,9 +617,25 @@ def load_config(yaml_path: str) -> dict:
         else:
             cfg['pitch'] = 1.0e12  # effectively no rotation / straight GLAD
 
-    cfg.setdefault('author_radius_nm', float(AUTHOR_RADIUS))
+    cfg.setdefault('author_radius_nm', float(MATERIAL_ATOM_RADIUS_NM.get(material, AUTHOR_RADIUS)))
     cfg['_source_yaml'] = os.path.abspath(yaml_path)
     return cfg
+
+
+def _derive_angular_sigma_deg(source_radius_cm: float, source_distance_cm: float) -> float:
+    """
+    Physically-derived flux angular half-spread for a thermal-evaporation point/area
+    source of radius `source_radius_cm` at distance `source_distance_cm`:
+
+        sigma_deg = degrees(atan(source_radius_cm / source_distance_cm))
+
+    Larger source, or closer distance, -> larger (less collimated) spread. This
+    replaces an arbitrary angular_sigma_deg guess with a real geometric quantity when
+    the source aperture size is known (or assumed and stated as such).
+    """
+    if source_distance_cm <= 0:
+        return 0.0
+    return float(np.degrees(np.arctan(source_radius_cm / source_distance_cm)))
 
 
 def _validate_angular_distribution_config(raw_value, defaults: dict) -> dict:
@@ -502,7 +700,13 @@ void RAY_SPHERE_KERNEL(
     const int     n_rays,
     const int     n_atoms,
     const float   radius,
-    float*        t_results      // [n_rays]
+    float*        t_results,     // [n_rays]
+    const int     n_stable,      // TWO-TIER GRID (2026-09-03, dev-only, not yet live):
+    const int     n_active_pending // positions[n_stable:n_active_pending] are pending atoms
+                                     // not yet in the grid -- checked by brute force below.
+                                     // When n_stable == n_active_pending (no pending atoms),
+                                     // this loop is a no-op and behaviour is IDENTICAL to the
+                                     // original single-tier kernel.
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= n_rays) return;
@@ -599,6 +803,51 @@ void RAY_SPHERE_KERNEL(
             else               { current_voxel.z += step_z; tMaxZ += tDeltaZ; }
         }
     }
+
+    // TWO-TIER GRID (2026-09-03, dev-only, not yet live): brute-force check against
+    // pending atoms not yet covered by the grid (positions[n_stable:n_active_pending]).
+    //
+    // CORRECTNESS NOTE (found and fixed during implementation, not shipped with the
+    // bug): the grid-cell loop above uses `vx`/`vy` (the DDA traversal's CURRENT
+    // voxel-centre position) as the minimum-image reference point, not the ray
+    // origin `O` -- correct there because it is testing many different cells along
+    // a potentially long ray path, and wants the periodic image nearest to the
+    // SPECIFIC cell currently being tested. This brute-force loop has no equivalent
+    // "current position along the ray" (it is not iterating cell-by-cell), so a
+    // single fixed reference point (e.g. the ray origin) is NOT a valid substitute --
+    // an early draft of this code used `O` here and was wrong for exactly this
+    // reason on grazing rays that travel far laterally before a possible hit.
+    // Fixed to test all nine periodic images of C explicitly (dx,dy in {-1,0,1}) and
+    // keep the best (smallest valid t) intersection across all nine -- this is
+    // unambiguous and does not depend on any single "current position" choice. Same
+    // nearest-image-only assumption (no image beyond +-1 box width) as every other
+    // periodic lookup in this file (the grid's own (gx%nx+nx)%nx wraparound is
+    // likewise a 1-cell-radius convention), so this introduces no new assumption.
+    for (int p = n_stable; p < n_active_pending; p++) {
+        float3 C0 = {
+            positions[3 * p + 0],
+            positions[3 * p + 1],
+            positions[3 * p + 2]
+        };
+        for (int ix = -1; ix <= 1; ix++) {
+            for (int iy = -1; iy <= 1; iy++) {
+                float3 C = { C0.x + ix * box_w, C0.y + iy * box_d, C0.z };
+                float3 L = {O.x - C.x, O.y - C.y, O.z - C.z};
+                float b = 2.0f * (D.x * L.x + D.y * L.y + D.z * L.z);
+                float c = (L.x * L.x + L.y * L.y + L.z * L.z) - r2;
+                float disc = b * b - 4.0f * c;
+                if (disc >= 0) {
+                    float sqrt_d = sqrtf(disc);
+                    float t = (-b - sqrt_d) / 2.0f;
+                    if (t > 1e-4f && t < t_min) {
+                        t_min = t;
+                        hit = true;
+                    }
+                }
+            }
+        }
+    }
+
     t_results[idx] = hit ? t_min : 1e20f;
 }
 
@@ -620,11 +869,22 @@ void DIFFUSION_KERNEL(
     const int     n_rays,
     const float   bw,
     const float   bd,
-    unsigned int  seed
+    unsigned int  seed,
+    int*          debug_out,   // TEMP DIAGNOSTIC: [n_rays], packs a coarse fault code per thread
+    float*        debug_vals,  // TEMP DIAGNOSTIC: [n_rays*6] = pos.x,pos.y,r,angle,tx,ty for the first faulting hop
+    const int     use_neighbor_barrier,  // Mehl1999 Model-II EAM local barrier (opt-in, default 0)
+    const float   eam_e0,                // eV, isolated-adatom barrier (Mehl1999 Table II)
+    const float   eam_dNN,               // eV per NN bond
+    const float   eam_dNNN,              // eV per NNN bond
+    const float   nn_cutoff,             // nm, NN-shell radius
+    const float   nnn_cutoff,            // nm, NNN-shell outer radius
+    const int     n_stable,              // TWO-TIER GRID (dev, 2026-09-03): atoms below this index are covered by cell_starts/sorted_indices
+    const int     n_active_pending       // TWO-TIER GRID: atoms [n_stable, n_active_pending) are NOT in the grid yet, checked by brute force below
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= n_rays) return;
-    
+    debug_out[idx] = 0;
+
     int3 grid_dims = {nx, ny, nz};
     float3 grid_min = {gm_x, gm_y, gm_z};
     float2 box_size = {bw, bd};
@@ -640,8 +900,128 @@ void DIFFUSION_KERNEL(
         return (float)state / (float)0xffffffff;
     };
 
+    // --- Surface-adatom mobility gate (2026-09-07 diffusion-model fix) ---
+    // Only genuinely under-coordinated surface atoms diffuse. Without this every
+    // active-window atom hops, and because a hop settles onto the local z-floor
+    // (contact height on the tallest laterally-reachable neighbour) each accepted
+    // hop is a *climb*: interior atoms ratchet toward the column apex, the film
+    // gains height with a fraction of the mass, connectivity collapses
+    // (P1_DIFFUSION_HOPBUDGET_SWEEP_20260907: cap=1 -> 15 % of the ballistic atom
+    // count, ISOLATED_COLUMNS vs ballistic CONNECTED_FILM). Coordination is counted
+    // in the same 3x3 grid columns used for the z-floor below, around the atom's
+    // CURRENT position, within a 1.15*collision_diameter first shell. An atom with
+    // coord >= MOBILE_COORD_MAX is embedded -> immobile (write back, done).
+    {
+        const int   MOBILE_COORD_MAX = 10;
+        const float mob_shell2 = (1.15f * collision_diameter) * (1.15f * collision_diameter);
+        // positions are stored UNWRAPPED (periodic); wrap into [0,box) for the grid
+        // index exactly as the z-floor loop does with tx/ty, else a large unwrapped
+        // pos.x makes the (g + d%N + N)%N formula produce a negative index ->
+        // cudaErrorIllegalAddress. Neighbour DISTANCES below still use minimum-image
+        // against the raw (unwrapped) coordinates, which is correct.
+        float mwpx = fmodf(pos.x, box_size.x); if (mwpx < 0.0f) mwpx += box_size.x;
+        float mwpy = fmodf(pos.y, box_size.y); if (mwpy < 0.0f) mwpy += box_size.y;
+        int mgx0 = (int)floorf((mwpx - grid_min.x) / cell_size);
+        int mgy0 = (int)floorf((mwpy - grid_min.y) / cell_size);
+        mgx0 = (mgx0 % grid_dims.x + grid_dims.x) % grid_dims.x;
+        mgy0 = (mgy0 % grid_dims.y + grid_dims.y) % grid_dims.y;
+        int coord0 = 0;
+        for (int mdx = -1; mdx <= 1 && coord0 < MOBILE_COORD_MAX; mdx++) {
+            for (int mdy = -1; mdy <= 1 && coord0 < MOBILE_COORD_MAX; mdy++) {
+                int mgx = (mgx0 + mdx % grid_dims.x + grid_dims.x) % grid_dims.x;
+                int mgy = (mgy0 + mdy % grid_dims.y + grid_dims.y) % grid_dims.y;
+                for (int mgz = grid_dims.z - 1; mgz >= 0; mgz--) {
+                    int m_idx = (mgx * grid_dims.y + mgy) * grid_dims.z + mgz;
+                    int ms = cell_starts[m_idx];
+                    int me = cell_starts[m_idx + 1];
+                    for (int mk = ms; mk < me; mk++) {
+                        float3 q = all_positions[sorted_indices[mk]];
+                        float qdx = pos.x - q.x; qdx += roundf(-qdx / box_size.x) * box_size.x;
+                        float qdy = pos.y - q.y; qdy += roundf(-qdy / box_size.y) * box_size.y;
+                        float qdz = pos.z - q.z;
+                        float md2 = qdx * qdx + qdy * qdy + qdz * qdz;
+                        if (md2 > 1e-6f && md2 < mob_shell2) coord0++;
+                    }
+                }
+            }
+        }
+        for (int pidx = n_stable; pidx < n_active_pending && coord0 < MOBILE_COORD_MAX; pidx++) {
+            float3 q = all_positions[pidx];
+            float qdx = pos.x - q.x; qdx += roundf(-qdx / box_size.x) * box_size.x;
+            float qdy = pos.y - q.y; qdy += roundf(-qdy / box_size.y) * box_size.y;
+            float qdz = pos.z - q.z;
+            float md2 = qdx * qdx + qdy * qdy + qdz * qdz;
+            if (md2 > 1e-6f && md2 < mob_shell2) coord0++;
+        }
+        if (coord0 >= MOBILE_COORD_MAX) { new_atoms[idx] = pos; return; }
+    }
+
     for (int h = 0; h < hops; h++) {
         if (next_rand() > hop_prob) continue;
+        debug_out[idx] = 9;  // TEMP DIAGNOSTIC: marks "hop body entered at least once", overwritten below if a fault is found
+
+        // Mehl1999 Model-II EAM local-neighbour barrier (opt-in, use_neighbor_barrier!=0):
+        // count real 3D neighbours within two distance shells (NN, NNN) around the atom's
+        // CURRENT site (pos, before choosing a candidate target), form the local barrier
+        // EB_local = eam_e0 + eam_dNN*n_NN + eam_dNNN*n_NNN (Mehl, Biham, Furman & Karimi,
+        // Phys. Rev. B 60, 2106 (1999), Table II, Cu Model II), and apply an EXTRA
+        // Boltzmann suppression factor relative to eam_e0 (already baked into the
+        // passed-in hop_prob/kB_T, which was calibrated against an isolated-adatom Ea).
+        // Only ever suppresses further (local barrier >= eam_e0 for any real neighbour
+        // count), never boosts a hop above the base attempt rate — consistent with
+        // Mehl1999's own finding that added neighbours always raise the barrier
+        // (dNN, dNNN > 0 for Cu). Distance-shell counting is a coarse-grained proxy for
+        // Mehl's exact 7-site fcc(001) classification, appropriate here since this
+        // project's packing is amorphous/ballistic, not a rigid lattice.
+        if (use_neighbor_barrier != 0) {
+            int gx0 = (int)floorf((pos.x - grid_min.x) / cell_size);
+            int gy0 = (int)floorf((pos.y - grid_min.y) / cell_size);
+            int n_nn = 0;
+            int n_nnn = 0;
+            for (int ndx = -1; ndx <= 1; ndx++) {
+                for (int ndy = -1; ndy <= 1; ndy++) {
+                    int ngx = (gx0 + ndx % grid_dims.x + grid_dims.x) % grid_dims.x;
+                    int ngy = (gy0 + ndy % grid_dims.y + grid_dims.y) % grid_dims.y;
+                    for (int ngz = grid_dims.z - 1; ngz >= 0; ngz--) {
+                        int n_idx = (ngx * grid_dims.y + ngy) * grid_dims.z + ngz;
+                        int nstart = cell_starts[n_idx];
+                        int nend = cell_starts[n_idx + 1];
+                        for (int nk = nstart; nk < nend; nk++) {
+                            float3 q = all_positions[sorted_indices[nk]];
+                            float qdx = pos.x - q.x;
+                            float qdy = pos.y - q.y;
+                            qdx += roundf(-qdx / box_size.x) * box_size.x;
+                            qdy += roundf(-qdy / box_size.y) * box_size.y;
+                            float qdz = pos.z - q.z;
+                            float d2 = qdx * qdx + qdy * qdy + qdz * qdz;
+                            if (d2 > 1e-6f && d2 < nn_cutoff * nn_cutoff) n_nn++;
+                            else if (d2 < nnn_cutoff * nnn_cutoff) n_nnn++;
+                        }
+                    }
+                }
+            }
+            // TWO-TIER GRID (dev, 2026-09-03): pending atoms [n_stable, n_active_pending)
+            // are not yet in cell_starts/sorted_indices -- brute-force them too, using the
+            // same fixed query point (pos) the grid-cell loop above already uses for its own
+            // minimum-image correction (safe here, unlike RAY_SPHERE_KERNEL's traversal loop,
+            // because `pos` does not change during this scan -- there is no "current position
+            // along a ray" ambiguity for a single fixed query point).
+            for (int pidx = n_stable; pidx < n_active_pending; pidx++) {
+                float3 q = all_positions[pidx];
+                float qdx = pos.x - q.x;
+                float qdy = pos.y - q.y;
+                qdx += roundf(-qdx / box_size.x) * box_size.x;
+                qdy += roundf(-qdy / box_size.y) * box_size.y;
+                float qdz = pos.z - q.z;
+                float d2 = qdx * qdx + qdy * qdy + qdz * qdz;
+                if (d2 > 1e-6f && d2 < nn_cutoff * nn_cutoff) n_nn++;
+                else if (d2 < nnn_cutoff * nnn_cutoff) n_nnn++;
+            }
+            float ea_local = eam_e0 + eam_dNN * (float)n_nn + eam_dNNN * (float)n_nnn;
+            float extra_prob = expf(-fmaxf(0.0f, ea_local - eam_e0) / kB_T);
+            if (next_rand() > extra_prob) continue;
+        }
+
         float angle = next_rand() * 6.2831853f;
         float r = next_rand() * diff_radius;
         float tx = fmodf(pos.x + r * cosf(angle), box_size.x);
@@ -649,34 +1029,518 @@ void DIFFUSION_KERNEL(
         float ty = fmodf(pos.y + r * sinf(angle), box_size.y);
         if (ty < 0) ty += box_size.y;
 
+        debug_vals[idx*6+0] = pos.x; debug_vals[idx*6+1] = pos.y;
+        debug_vals[idx*6+2] = r;     debug_vals[idx*6+3] = angle;
+        debug_vals[idx*6+4] = tx;    debug_vals[idx*6+5] = ty;
+
         float tz = r_nm;   // floor = r (was hardcoded 0.1f for legacy r=0.10 nm)
         int gx = floorf((tx - grid_min.x) / cell_size);
         int gy = floorf((ty - grid_min.y) / cell_size);
 
+        // TEMP DIAGNOSTIC: flag if gx/gy land outside the expected single-step-wrappable
+        // range [0, grid_dims) BEFORE the (gx+dx%N+N)%N formula runs -- that formula only
+        // correctly wraps a +-1 step, not a gx/gy that is already far out of range.
+        if (gx < 0 || gx >= grid_dims.x) debug_out[idx] = 1;
+        if (gy < 0 || gy >= grid_dims.y) debug_out[idx] = 2;
+        if (isnan(tx) || isnan(ty) || isinf(tx) || isinf(ty)) debug_out[idx] = 3;
+        if (isnan(pos.x) || isnan(pos.y) || isnan(pos.z)) debug_out[idx] = 4;
+        if (isinf(pos.x) || isinf(pos.y) || isinf(pos.z)) debug_out[idx] = 5;
+        if (fabsf(pos.x) > 1e15f || fabsf(pos.y) > 1e15f) debug_out[idx] = 6;  // huge-but-finite check
+
+        // UNVERIFIED CANDIDATE DIAGNOSTIC (2026-08-23, not yet GPU-tested): this loop used
+        // to declare its wrapped-cell-index locals as `nx`/`ny`/`nz`, shadowing the outer
+        // kernel parameters of the SAME name (grid dimensions, declared in the
+        // DIFFUSION_KERNEL signature above). CONTACT_RELAXATION_KERNEL's equivalent loop
+        // already avoids this by using distinct names (`gxx`/`gyy`/`gz`). Renamed here to
+        // `cgx`/`cgy`/`cgz` (purely a rename, no logic change) as the first thing to test
+        // against the dwell-time-fix crash (NaN + z~-3.7e19 at batch 0, box=100nm/alpha=85,
+        // hops_batch>1) -- suspected but NOT CONFIRMED as the actual cause; hold as a
+        // hypothesis until re-tested on GPU. See
+        // P1_CONTACT_RELAXATION_MODEL_DESIGN_20260823.md `S8_DIFFUSION_DWELL_TIME_FIX`.
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
-                int nx = (gx + dx % grid_dims.x + grid_dims.x) % grid_dims.x;
-                int ny = (gy + dy % grid_dims.y + grid_dims.y) % grid_dims.y;
-                for (int nz = grid_dims.z - 1; nz >= 0; nz--) {
-                    int c_idx = (nx * grid_dims.y + ny) * grid_dims.z + nz;
+                int cgx = (gx + dx % grid_dims.x + grid_dims.x) % grid_dims.x;
+                int cgy = (gy + dy % grid_dims.y + grid_dims.y) % grid_dims.y;
+                for (int cgz = grid_dims.z - 1; cgz >= 0; cgz--) {
+                    int c_idx = (cgx * grid_dims.y + cgy) * grid_dims.z + cgz;
                     int start = cell_starts[c_idx];
                     int end = cell_starts[c_idx + 1];
                     if (start < end) {
                         for (int k = start; k < end; k++) {
-                            float z_atom = all_positions[sorted_indices[k]].z;
-                            // collision_diameter = 2*r_nm: atom center lands at full contact distance above existing
-                            if (z_atom + collision_diameter > tz) tz = z_atom + collision_diameter;
+                            float3 p_atom = all_positions[sorted_indices[k]];
+                            // Minimum-image correction: shift the neighbour to the periodic
+                            // image nearest the candidate hop site (tx,ty) -- same convention
+                            // as RAY_SPHERE_KERNEL's minimum-image handling above.
+                            float ndx = tx - p_atom.x;
+                            float ndy = ty - p_atom.y;
+                            p_atom.x += roundf(ndx / box_size.x) * box_size.x;
+                            p_atom.y += roundf(ndy / box_size.y) * box_size.y;
+                            ndx = tx - p_atom.x;
+                            ndy = ty - p_atom.y;
+                            float lateral2 = ndx * ndx + ndy * ndy;
+                            // True lateral-distance-filtered floor: a neighbour can only raise
+                            // the floor if it's within lateral reach of the candidate site, and
+                            // only by the sphere-sphere touching height at that lateral offset
+                            // (sqrt(collision_diameter^2 - lateral^2)) -- NOT unconditionally by
+                            // the full collision_diameter regardless of how far away it sits
+                            // laterally (old bug: every neighbour anywhere in the 3x3-cell scan
+                            // raised the floor by the full diameter, ratcheting atoms upward on
+                            // ~all hops once real hop-body execution frequency rose after the
+                            // dwell-time fix).
+                            if (lateral2 < collision_diameter * collision_diameter) {
+                                float z_floor = p_atom.z + sqrtf(collision_diameter * collision_diameter - lateral2);
+                                if (z_floor > tz) tz = z_floor;
+                            }
                         }
                     }
                 }
             }
         }
+
+        // TWO-TIER GRID (dev, 2026-09-03): pending atoms [n_stable, n_active_pending) are
+        // not yet in cell_starts/sorted_indices -- brute-force the same lateral-distance-
+        // filtered floor check against them, using (tx,ty) as the fixed query point (same
+        // reasoning as the neighbour-barrier loop above: tx,ty does not change during this
+        // scan, so a single minimum-image correction against it is exact).
+        for (int pidx = n_stable; pidx < n_active_pending; pidx++) {
+            float3 p_atom = all_positions[pidx];
+            float ndx = tx - p_atom.x;
+            float ndy = ty - p_atom.y;
+            p_atom.x += roundf(ndx / box_size.x) * box_size.x;
+            p_atom.y += roundf(ndy / box_size.y) * box_size.y;
+            ndx = tx - p_atom.x;
+            ndy = ty - p_atom.y;
+            float lateral2 = ndx * ndx + ndy * ndy;
+            if (lateral2 < collision_diameter * collision_diameter) {
+                float z_floor = p_atom.z + sqrtf(collision_diameter * collision_diameter - lateral2);
+                if (z_floor > tz) tz = z_floor;
+            }
+        }
         float dz = tz - pos.z;
-        if (dz >= 0 || next_rand() < expf(-(fabsf(dz)*0.1f) / kB_T)) {
+        // Diffusion-model fix (2026-09-07): a hop is a surface move, not a climb.
+        //  - one hop may not lift the atom more than a single atomic step
+        //    (collision_diameter). The unbounded "settle onto the tallest
+        //    laterally-reachable neighbour" rule + unconditional uphill accept was the
+        //    ratchet that emptied the film (see mobility-gate note above).
+        //  - reject a hop whose target found NO support (tz fell back to the r_nm
+        //    floor) while the atom sits well above the substrate -- a hop into vacuum.
+        if (dz > collision_diameter) continue;
+        if (tz <= r_nm + 1e-4f && pos.z > r_nm + collision_diameter) continue;
+        // settle (dz <= 0) is free; a small climb (0 < dz <= collision_diameter) is
+        // Boltzmann-gated (was previously accepted unconditionally).
+        if (dz <= 0.0f || next_rand() < expf(-(dz * 0.1f) / kB_T)) {
             pos.x = tx; pos.y = ty; pos.z = tz;
         }
     }
     new_atoms[idx] = pos;
+}
+
+extern "C" __global__
+void CONTACT_RELAXATION_KERNEL(
+    float3*       new_atoms,      // [n_active] raw rigid-2R contact positions, IN/OUT
+    const float3* all_positions,
+    const int*    cell_starts,
+    const int*    sorted_indices,
+    const int nx, const int ny, const int nz,
+    const float gm_x, const float gm_y, const float gm_z,
+    const float   cell_size,
+    const float   relax_radius,
+    const int     num_ring_candidates,
+    const float   bond_energy_eV,
+    const float   coord_shell_factor,   // neighbour counted as "touching" if dist < collision_diameter*coord_shell_factor
+    const float   collision_diameter,
+    const float   flux_dx, const float flux_dy, const float flux_dz,  // this batch's incoming flux direction
+    const float   kB_T,            // kB * deposition temperature [eV] -- makes bond_energy_eV load-bearing (BUG A fix)
+    const int     n_active,
+    const float   bw, const float bd,
+    const int     n_stable,          // TWO-TIER GRID (dev, 2026-09-03): atoms below this index are covered by cell_starts/sorted_indices
+    const int     n_active_pending   // TWO-TIER GRID: atoms [n_stable, n_active_pending) are NOT in the grid yet, checked by brute force below
+) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= n_active) return;
+
+    int3 grid_dims = {nx, ny, nz};
+    float3 grid_min = {gm_x, gm_y, gm_z};
+    float2 box_size = {bw, bd};
+
+    float3 P0 = new_atoms[idx];
+    if (P0.z > 1e19f) return;   // safety: same overflow guard as DIFFUSION_KERNEL
+
+    float shell2 = (collision_diameter * coord_shell_factor) * (collision_diameter * coord_shell_factor);
+
+    // Local helper (inline, no function pointers on device): count neighbours within
+    // the "touching" shell around (px,py,pz), given the (gx,gy) cell already known.
+    // Used for BOTH P0 (BUG B fix: P0's own coordination, at its true unmodified
+    // position, with no floor-recompute) and every ring candidate.
+    auto count_coord = [&](float px, float py, float pz, int gx, int gy) -> int {
+        int coord = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                int gxx = (gx + dx % grid_dims.x + grid_dims.x) % grid_dims.x;
+                int gyy = (gy + dy % grid_dims.y + grid_dims.y) % grid_dims.y;
+                for (int gz = grid_dims.z - 1; gz >= 0; gz--) {
+                    int c_idx = (gxx * grid_dims.y + gyy) * grid_dims.z + gz;
+                    int start = cell_starts[c_idx];
+                    int end = cell_starts[c_idx + 1];
+                    for (int k = start; k < end; k++) {
+                        float3 nb = all_positions[sorted_indices[k]];
+                        float nddx = nb.x - px, nddy = nb.y - py, nddz = nb.z - pz;
+                        float d2 = nddx*nddx + nddy*nddy + nddz*nddz;
+                        if (d2 > 1e-8f && d2 < shell2) coord++;
+                    }
+                }
+            }
+        }
+        // TWO-TIER GRID (dev, 2026-09-03): pending atoms [n_stable, n_active_pending) are
+        // not yet in cell_starts/sorted_indices -- brute-force them too, same distance
+        // test as the grid-cell loop above (no minimum-image correction here, matching
+        // that loop exactly: all_positions is populated from already-wrapped deposition
+        // coordinates, unlike the transient P0 handled separately above via p0wx/p0wy).
+        for (int pidx = n_stable; pidx < n_active_pending; pidx++) {
+            float3 nb = all_positions[pidx];
+            float nddx = nb.x - px, nddy = nb.y - py, nddz = nb.z - pz;
+            float d2 = nddx*nddx + nddy*nddy + nddz*nddz;
+            if (d2 > 1e-8f && d2 < shell2) coord++;
+        }
+        return coord;
+    };
+
+    // BUG B fix: candidate 0 (the safe no-op default) is P0 verbatim -- no floor
+    // recompute. The floor-raise loop (used only for ring candidates below) adds the
+    // FULL collision_diameter regardless of lateral offset, which overestimates height
+    // for a side-touch contact and can push a recomputed "P0" above the true ray-sphere
+    // contact point -- exactly the failure the audit caught at near-grazing incidence.
+    //
+    // OOB FIX (post-re-audit): positions_gpu stores UNWRAPPED trajectory coordinates
+    // (no fmodf anywhere in the Python insertion path), and at near-grazing incidence
+    // P0.x/P0.y can land many multiples of box_size outside [0, box_width) -- the DDA
+    // ray-sphere search travels far laterally before a hit. Grid-cell indices must be
+    // computed from a WRAPPED copy (mirrors every other lookup in this file: ring
+    // candidates below, DIFFUSION_KERNEL, RAY_SPHERE_KERNEL); using raw unwrapped P0.x/
+    // P0.y here (as the first fix did) can make gx0/gy0 more negative than -grid_dims,
+    // breaking the "(gx0 + dx%grid_dims.x + grid_dims.x) % grid_dims.x" wraparound trick
+    // and producing a negative c_idx -- an out-of-bounds GPU memory read into
+    // cell_starts/sorted_indices. Only the INDEX computation wraps; count_coord still
+    // receives the TRUE unwrapped P0 position for the distance/score calculation, so the
+    // returned position/score are unchanged from the Bug B fix.
+    float p0wx = fmodf(P0.x, box_size.x); if (p0wx < 0) p0wx += box_size.x;
+    float p0wy = fmodf(P0.y, box_size.y); if (p0wy < 0) p0wy += box_size.y;
+    int gx0 = floorf((p0wx - grid_min.x) / cell_size);
+    int gy0 = floorf((p0wy - grid_min.y) / cell_size);
+    float p0_score = (float)count_coord(P0.x, P0.y, P0.z, gx0, gy0) * bond_energy_eV;
+
+    float3 best_pos = P0;
+    // BUG A fix: bond_energy_eV now compared against kB_T, not merely used as a
+    // multiplicative constant on an integer count (which never affects an argmax).
+    // A ring candidate only replaces P0 if its coordination-energy gain exceeds one
+    // thermal unit -- a real, deterministic (non-stochastic, consistent with this
+    // kernel's reproducible-settling design) energetic acceptance test in which the
+    // bond_energy_eV value actually changes the outcome: a higher value clears the
+    // kB_T bar more easily, a lower value keeps the safe P0 default more often.
+    float best_score = p0_score;
+
+    for (int c = 1; c <= num_ring_candidates; c++) {
+        float angle = 6.2831853f * (float)(c - 1) / (float)num_ring_candidates;
+        float cx = P0.x + relax_radius * cosf(angle);
+        float cy = P0.y + relax_radius * sinf(angle);
+        float wx = fmodf(cx, box_size.x); if (wx < 0) wx += box_size.x;
+        float wy = fmodf(cy, box_size.y); if (wy < 0) wy += box_size.y;
+
+        // z-floor: candidate cannot overlap any existing neighbour (hard constraint,
+        // same logic/tolerance as the pre-existing DIFFUSION_KERNEL). Only applied to
+        // ring candidates -- P0 already has its true, already-valid contact z (BUG B).
+        float cz = collision_diameter;
+        int gx = floorf((wx - grid_min.x) / cell_size);
+        int gy = floorf((wy - grid_min.y) / cell_size);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                int gxx = (gx + dx % grid_dims.x + grid_dims.x) % grid_dims.x;
+                int gyy = (gy + dy % grid_dims.y + grid_dims.y) % grid_dims.y;
+                for (int gz = grid_dims.z - 1; gz >= 0; gz--) {
+                    int c_idx = (gxx * grid_dims.y + gyy) * grid_dims.z + gz;
+                    int start = cell_starts[c_idx];
+                    int end = cell_starts[c_idx + 1];
+                    for (int k = start; k < end; k++) {
+                        float z_atom = all_positions[sorted_indices[k]].z;
+                        if (z_atom + collision_diameter > cz) cz = z_atom + collision_diameter;
+                    }
+                }
+            }
+        }
+        // TWO-TIER GRID (dev, 2026-09-03): pending atoms, same unconditional-floor logic
+        // as the grid-cell loop above (matches it exactly, no lateral filtering here --
+        // that is this loop's own pre-existing behaviour, not something this change adds).
+        for (int pidx = n_stable; pidx < n_active_pending; pidx++) {
+            float z_atom = all_positions[pidx].z;
+            if (z_atom + collision_diameter > cz) cz = z_atom + collision_diameter;
+        }
+
+        // Causality constraint: candidate displacement from P0, projected onto the
+        // incoming flux direction, must not be negative -- the atom may not move
+        // backward along the path it just ballistically traveled.
+        float ddx = wx - P0.x, ddy = wy - P0.y, ddz = cz - P0.z;
+        float proj = ddx * flux_dx + ddy * flux_dy + ddz * flux_dz;
+        if (proj < -1e-4f) continue;
+
+        float score = (float)count_coord(wx, wy, cz, gx, gy) * bond_energy_eV;
+        if (score > best_score + kB_T) {
+            best_score = score;
+            best_pos.x = wx; best_pos.y = wy; best_pos.z = cz;
+        }
+    }
+
+    new_atoms[idx] = best_pos;
+}
+
+extern "C" __global__
+void REEMISSION_KERNEL(
+    float3*       reject_atoms,   // [n_reject] raw rejected-contact positions, IN/OUT
+    int*          stuck_flags,    // [n_reject] OUT: 1 = re-stuck, 0 = exhausted attempts (lost)
+    const float3* all_positions,
+    const int*    cell_starts,
+    const int*    sorted_indices,
+    const int nx, const int ny, const int nz,
+    const float gm_x, const float gm_y, const float gm_z,
+    const float   cell_size,
+    const float   normal_shell_factor,   // neighbours within collision_diameter*this define the local normal/coord shell
+    const float   collision_diameter,
+    const float   sticking_probability,
+    const int     max_attempts,
+    const float   flux_dx, const float flux_dy, const float flux_dz,  // fallback normal if no neighbours found
+    const int     n_reject,
+    const float   bw, const float bd,
+    unsigned int  seed,
+    const int     n_stable,          // TWO-TIER GRID (dev, 2026-09-03): atoms below this index are covered by cell_starts/sorted_indices
+    const int     n_active_pending   // TWO-TIER GRID: atoms [n_stable, n_active_pending) are NOT in the grid yet, checked by brute force below
+) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= n_reject) return;
+
+    int3 grid_dims = {nx, ny, nz};
+    float3 grid_min = {gm_x, gm_y, gm_z};
+    float box_w = bw, box_d = bd;
+    float shell = collision_diameter * normal_shell_factor;
+    float r2 = collision_diameter * collision_diameter;
+
+    unsigned int state = seed + idx * 2654435761u;
+    auto next_rand = [&]() {
+        state ^= state << 13; state ^= state >> 17; state ^= state << 5;
+        return (float)state / (float)0xffffffff;
+    };
+
+    float3 P = reject_atoms[idx];
+    if (P.z > 1e19f) { stuck_flags[idx] = 0; return; }  // safety guard, matches other kernels
+
+    int stuck = 0;
+
+    for (int attempt = 0; attempt < max_attempts; attempt++) {
+        // ── 1. Local surface normal: sum of unit vectors from each in-shell
+        // neighbour TO P (points away from the local mass -- "outward"). ──
+        float pxw = fmodf(P.x, box_w); if (pxw < 0) pxw += box_w;
+        // SECONDARY BUG FOUND (2026-08-24, same re-audit): this used to wrap with `box_w`
+        // (box WIDTH) instead of `box_d` (box DEPTH). Harmless for every square box tested
+        // tonight (box_w==box_d in all configs), but wrong for a non-square box. Fixed.
+        float pyw = fmodf(P.y, box_d); if (pyw < 0) pyw += box_d;
+        int gx = floorf((pxw - grid_min.x) / cell_size);
+        int gy = floorf((pyw - grid_min.y) / cell_size);
+
+        float nx_sum = 0.0f, ny_sum = 0.0f, nz_sum = 0.0f;
+        int n_neighbours = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                int gxx = (gx + dx % grid_dims.x + grid_dims.x) % grid_dims.x;
+                int gyy = (gy + dy % grid_dims.y + grid_dims.y) % grid_dims.y;
+                for (int gz = grid_dims.z - 1; gz >= 0; gz--) {
+                    int c_idx = (gxx * grid_dims.y + gyy) * grid_dims.z + gz;
+                    int start = cell_starts[c_idx];
+                    int end = cell_starts[c_idx + 1];
+                    for (int k = start; k < end; k++) {
+                        float3 nb = all_positions[sorted_indices[k]];
+                        // Minimum-image correction (matches RAY_SPHERE_KERNEL and the DDA
+                        // loop below): all_positions stores UNWRAPPED trajectory coordinates,
+                        // so a periodically-close neighbour can have a raw ddx/ddy of many
+                        // box-widths. Without this, most real neighbours are silently
+                        // undercounted -- this was the root cause of a 0/598-restuck failure
+                        // caught in live testing (n_neighbours was ~always 0, forcing the
+                        // -flux_dir fallback for every atom, so every re-emitted ray flew in
+                        // the same fixed direction regardless of true local geometry).
+                        float rawx = P.x - nb.x, rawy = P.y - nb.y;
+                        rawx -= roundf(rawx / box_w) * box_w;
+                        rawy -= roundf(rawy / box_d) * box_d;
+                        float ddx = rawx, ddy = rawy, ddz = P.z - nb.z;
+                        float d2 = ddx*ddx + ddy*ddy + ddz*ddz;
+                        if (d2 > 1e-8f && d2 < shell*shell) {
+                            float d = sqrtf(d2);
+                            nx_sum += ddx / d; ny_sum += ddy / d; nz_sum += ddz / d;
+                            n_neighbours++;
+                        }
+                    }
+                }
+            }
+        }
+        // TWO-TIER GRID (dev, 2026-09-03): pending atoms [n_stable, n_active_pending) are
+        // not yet in cell_starts/sorted_indices -- brute-force them too, using P (this
+        // attempt's fixed query point) as the minimum-image reference, same convention
+        // as the grid-cell loop directly above (safe here: P does not change within one
+        // attempt iteration, unlike the DDA traversal loop's vx/vy further below).
+        for (int pidx = n_stable; pidx < n_active_pending; pidx++) {
+            float3 nb = all_positions[pidx];
+            float rawx = P.x - nb.x, rawy = P.y - nb.y;
+            rawx -= roundf(rawx / box_w) * box_w;
+            rawy -= roundf(rawy / box_d) * box_d;
+            float ddx = rawx, ddy = rawy, ddz = P.z - nb.z;
+            float d2 = ddx*ddx + ddy*ddy + ddz*ddz;
+            if (d2 > 1e-8f && d2 < shell*shell) {
+                float d = sqrtf(d2);
+                nx_sum += ddx / d; ny_sum += ddy / d; nz_sum += ddz / d;
+                n_neighbours++;
+            }
+        }
+        if (attempt == 0) { stuck_flags[idx] = n_neighbours; }  // TEMP DIAGNOSTIC: raw neighbour count, attempt 0 only
+        float3 normal;
+        if (n_neighbours > 0) {
+            float nlen = sqrtf(nx_sum*nx_sum + ny_sum*ny_sum + nz_sum*nz_sum);
+            if (nlen > 1e-6f) { normal.x = nx_sum/nlen; normal.y = ny_sum/nlen; normal.z = nz_sum/nlen; }
+            else { normal.x = -flux_dx; normal.y = -flux_dy; normal.z = -flux_dz; }
+        } else {
+            normal.x = -flux_dx; normal.y = -flux_dy; normal.z = -flux_dz;  // fallback: away from incoming beam
+        }
+
+        // ── 2. Orthonormal basis (t1, t2, normal) ──
+        float3 up;
+        if (fabsf(normal.z) < 0.99f) { up.x = 0.0f; up.y = 0.0f; up.z = 1.0f; }
+        else                          { up.x = 1.0f; up.y = 0.0f; up.z = 0.0f; }
+        float3 t1;
+        t1.x = up.y*normal.z - up.z*normal.y;
+        t1.y = up.z*normal.x - up.x*normal.z;
+        t1.z = up.x*normal.y - up.y*normal.x;
+        float t1len = sqrtf(t1.x*t1.x + t1.y*t1.y + t1.z*t1.z);
+        t1.x /= t1len; t1.y /= t1len; t1.z /= t1len;
+        float3 t2;
+        t2.x = normal.y*t1.z - normal.z*t1.y;
+        t2.y = normal.z*t1.x - normal.x*t1.z;
+        t2.z = normal.x*t1.y - normal.y*t1.x;
+
+        // ── 3. Cosine-law (Lambertian) direction sample in local frame ──
+        float u1 = next_rand(), u2 = next_rand();
+        float cos_th = sqrtf(u1);
+        float sin_th = sqrtf(1.0f - u1);
+        float phi = 6.2831853f * u2;
+        float lx = sin_th * cosf(phi), ly = sin_th * sinf(phi), lz = cos_th;
+        float3 D;
+        D.x = lx*t1.x + ly*t2.x + lz*normal.x;
+        D.y = lx*t1.y + ly*t2.y + lz*normal.y;
+        D.z = lx*t1.z + ly*t2.z + lz*normal.z;
+
+        // ── 4. DDA ray-sphere search from P along D (per-thread direction;
+        // same traversal algorithm as RAY_SPHERE_KERNEL, adapted per-thread). ──
+        int3 current_voxel;
+        current_voxel.x = floorf((pxw - grid_min.x) / cell_size);
+        current_voxel.y = floorf((pyw - grid_min.y) / cell_size);
+        current_voxel.z = floorf((P.z - grid_min.z) / cell_size);
+        int step_x = (D.x > 0) ? 1 : (D.x < 0 ? -1 : 0);
+        int step_y = (D.y > 0) ? 1 : (D.y < 0 ? -1 : 0);
+        int step_z = (D.z > 0) ? 1 : (D.z < 0 ? -1 : 0);
+        float tDeltaX = (D.x != 0) ? fabsf(cell_size / D.x) : 1e20f;
+        float tDeltaY = (D.y != 0) ? fabsf(cell_size / D.y) : 1e20f;
+        float tDeltaZ = (D.z != 0) ? fabsf(cell_size / D.z) : 1e20f;
+        float tMaxX = (D.x > 0) ? (floorf((pxw - grid_min.x)/cell_size)+1.0f)*cell_size + grid_min.x - pxw :
+                                   (floorf((pxw - grid_min.x)/cell_size))*cell_size + grid_min.x - pxw;
+        float tMaxY = (D.y > 0) ? (floorf((pyw - grid_min.y)/cell_size)+1.0f)*cell_size + grid_min.y - pyw :
+                                   (floorf((pyw - grid_min.y)/cell_size))*cell_size + grid_min.y - pyw;
+        float tMaxZ = (D.z > 0) ? (floorf((P.z - grid_min.z)/cell_size)+1.0f)*cell_size + grid_min.z - P.z :
+                                   (floorf((P.z - grid_min.z)/cell_size))*cell_size + grid_min.z - P.z;
+        tMaxX = (D.x != 0) ? tMaxX / D.x : 1e20f;
+        tMaxY = (D.y != 0) ? tMaxY / D.y : 1e20f;
+        tMaxZ = (D.z != 0) ? tMaxZ / D.z : 1e20f;
+
+        float t_min = 1e20f;
+        bool hit = false;
+        for (int step = 0; step < 10000; step++) {
+            if (current_voxel.z < -1) break;  // matches RAY_SPHERE_KERNEL exactly (no upper bound --
+                                                // out-of-range z cells are simply skipped below, not
+                                                // a traversal-stopping condition; an added upper bound
+                                                // here was cutting off upward-pointing re-emission rays
+                                                // before they could reach any real structure)
+            int gxx2 = (current_voxel.x % grid_dims.x + grid_dims.x) % grid_dims.x;
+            int gyy2 = (current_voxel.y % grid_dims.y + grid_dims.y) % grid_dims.y;
+            int gz2 = current_voxel.z;
+            float vx = grid_min.x + (current_voxel.x + 0.5f) * cell_size;
+            float vy = grid_min.y + (current_voxel.y + 0.5f) * cell_size;
+            if (gz2 >= 0 && gz2 < grid_dims.z) {
+                int c_idx = (gxx2 * grid_dims.y + gyy2) * grid_dims.z + gz2;
+                int start = cell_starts[c_idx];
+                int end = cell_starts[c_idx + 1];
+                for (int k = start; k < end; k++) {
+                    float3 C = all_positions[sorted_indices[k]];
+                    float cdx = vx - C.x, cdy = vy - C.y;
+                    C.x += roundf(cdx / box_w) * box_w;
+                    C.y += roundf(cdy / box_d) * box_d;
+                    float3 L = {pxw - C.x, pyw - C.y, P.z - C.z};
+                    float b = 2.0f * (D.x*L.x + D.y*L.y + D.z*L.z);
+                    float c = (L.x*L.x + L.y*L.y + L.z*L.z) - r2;
+                    float disc = b*b - 4.0f*c;
+                    if (disc >= 0) {
+                        float sd = sqrtf(disc);
+                        float t = (-b - sd) / 2.0f;
+                        if (t > 1e-4f && t < t_min) { t_min = t; hit = true; }
+                    }
+                }
+            }
+            if (hit && t_min <= fminf(fminf(tMaxX, tMaxY), tMaxZ)) break;
+            if (tMaxX < tMaxY) {
+                if (tMaxX < tMaxZ) { current_voxel.x += step_x; tMaxX += tDeltaX; }
+                else               { current_voxel.z += step_z; tMaxZ += tDeltaZ; }
+            } else {
+                if (tMaxY < tMaxZ) { current_voxel.y += step_y; tMaxY += tDeltaY; }
+                else               { current_voxel.z += step_z; tMaxZ += tDeltaZ; }
+            }
+        }
+
+        // TWO-TIER GRID (dev, 2026-09-03): pending atoms are not covered by
+        // cell_starts/sorted_indices, so the DDA cell traversal above cannot see them.
+        // Brute-force them here using the same explicit periodic-image test as
+        // RAY_SPHERE_KERNEL's own pending-atom loop -- NOT a single fixed reference
+        // point, because this ray (like RAY_SPHERE_KERNEL's) has no one "current
+        // position" valid for every candidate atom along a potentially long grazing
+        // path; see RAY_SPHERE_KERNEL's own comment for the full reasoning. Placed
+        // after the traversal loop (not gated by its early-break) since it is
+        // independent of cell-visit order and the early break's correctness there
+        // only concerns the grid part.
+        for (int pidx = n_stable; pidx < n_active_pending; pidx++) {
+            float3 C0 = all_positions[pidx];
+            for (int ix = -1; ix <= 1; ix++) {
+                for (int iy = -1; iy <= 1; iy++) {
+                    float3 C = { C0.x + ix * box_w, C0.y + iy * box_d, C0.z };
+                    float3 L = { pxw - C.x, pyw - C.y, P.z - C.z };
+                    float b = 2.0f * (D.x*L.x + D.y*L.y + D.z*L.z);
+                    float c = (L.x*L.x + L.y*L.y + L.z*L.z) - r2;
+                    float disc = b*b - 4.0f*c;
+                    if (disc >= 0) {
+                        float sd = sqrtf(disc);
+                        float t = (-b - sd) / 2.0f;
+                        if (t > 1e-4f && t < t_min) { t_min = t; hit = true; }
+                    }
+                }
+            }
+        }
+
+        if (!hit) { break; }  // escaped -- re-evaporated, no further attempts (stuck stays whatever it was)
+        stuck = -1;  // TEMP DIAGNOSTIC: -1 = "at least one hit found", distinguishes from 0 = "never hit"
+
+        // ── 5. New contact point, fresh sticking test ──
+        float new_x = pxw + t_min * D.x;
+        float new_y = pyw + t_min * D.y;
+        float new_z = P.z + t_min * D.z;
+        P.x = new_x; P.y = new_y; P.z = new_z;
+
+        float u_stick = next_rand();
+        if (u_stick < sticking_probability) { stuck = 1; break; }
+        // else: rejected again -- loop continues, re-emitting from this new contact point
+    }
+
+    reject_atoms[idx] = P;
+    stuck_flags[idx] = stuck;
 }
 '''
 
@@ -791,12 +1655,35 @@ class GLADV3Simulator:
 
     def __init__(self, cfg: dict):
         self.cfg = cfg
+        # PERF-1 (2026-09-06, validated byte-identical): pick the fast plain device allocator
+        # for boxes that fit in VRAM; keep managed memory (host-RAM paging headroom) for large
+        # boxes. Skipped if GLAD_GPU_ALLOCATOR pinned a choice at import. set_allocator affects
+        # only FUTURE allocations and runs here before any large grid array is built, so
+        # switching is safe. Does NOT change physics -- V1 gate: max |delta| = 0 on a real
+        # box=100 run (PERF1_ALLOCATOR_VALIDATION_20260906/).
+        if GPU_AVAILABLE and not _ALLOC_ENV_FORCED:
+            _bw_perf1 = float(cfg.get('box_width', 100.0))
+            if _bw_perf1 <= 160.0:
+                cp.cuda.set_allocator(cp.cuda.MemoryPool().malloc)
+                print(f"[PERF-1] box_width={_bw_perf1:.0f}nm <= 160 -> PLAIN device MemoryPool (faster; fits VRAM)", flush=True)
+            else:
+                print(f"[PERF-1] box_width={_bw_perf1:.0f}nm > 160 -> MANAGED memory (paging headroom)", flush=True)
         for _k in ('alpha', 'pitch', 'batch_size', 'author_radius_nm'):
             if _k not in self.cfg:
                 raise ValueError(f"[GLAD FATAL] Missing required physics parameter: '{_k}'")
         self._r  = np.float32(self.cfg['author_radius_nm'])
         self._cd = np.float32(2.0 * self.cfg['author_radius_nm'])
+        _relax_r_cfg = self.cfg.get('contact_relaxation_radius_nm')
+        self._relax_radius_nm = np.float32(_relax_r_cfg if _relax_r_cfg is not None else 0.5 * float(self._cd))
+        # Dedicated, always-correctly-temperature-coupled kB*T for CONTACT_RELAXATION_KERNEL.
+        # NOT the same as self._kB_T above, which is gated behind the unrelated legacy
+        # `use_arrhenius` toy-diffusion flag and silently falls back to a hardcoded 0.025eV
+        # (~300K) when that flag is off -- ~3% off at this session's 298.15K test cases, up to
+        # ~40% off at e.g. 500K. A separate value avoids touching that old toy-kernel's
+        # behaviour (which must stay byte-identical for existing configs) while giving the new
+        # relaxation kernel a real kB*cfg['temperature'] regardless of the unrelated flag.
         self.kB = 8.617333262145e-5
+        self._kB_T_relax = np.float32(self.kB * cfg['temperature'])
         material = str(self.cfg.get('material', 'Cu'))
         if self.cfg.get('melting_point_K') is None:
             self.cfg['melting_point_K'] = MATERIAL_MELTING_POINTS_K.get(material, MATERIAL_MELTING_POINTS_K['Cu'])
@@ -841,14 +1728,42 @@ class GLADV3Simulator:
         self.resume_active_window_height = cfg.get('resume_active_window_height', None)
 
         # ── Grid-rebuild throttle ──────────────────────────────────────────
-        # Rebuild only every `_grid_rebuild_delta` new active atoms (or after
-        # compaction).  Between rebuilds, the cached grid is used — new atoms
-        # added since last rebuild won't cast shadows, but they represent < 0.5%
-        # of the active slab and the physics error is negligible.
+        # OVERLAP-VIOLATION FIX (2026-08-23, post-independent-audit): the old
+        # `batch_size * 4` throttle let up to ~2048 atoms deposit against a stale
+        # (pre-window) grid snapshot before the next rebuild, so contact/floor
+        # checks for most of those atoms never saw each other -- confirmed via
+        # live-GPU measurement to cause 55-90% of newly-deposited atoms to end up
+        # closer than `collision_diameter` to a neighbour (99.3% of violations were
+        # same-window, i.e. this throttle, not intra-batch parallelism, which is a
+        # separate, smaller, NOT-fixed-here residual -- see
+        # P1_CONTACT_RELAXATION_MODEL_DESIGN_20260823.md `S7_GRID_REBUILD_STALENESS_FIX`
+        # section for the full before/after data).
+        #
+        # delta=1, not delta=batch_size: `batch_size` is the number of ray TRIALS
+        # per deposit_batch() call, not the number that actually land (many miss,
+        # especially at high alpha -- e.g. ~40-50% miss rate at alpha=85). Using
+        # `_grid_rebuild_delta = batch_size` therefore does NOT guarantee a rebuild
+        # every batch -- it only guarantees one once *cumulative yield* reaches
+        # batch_size, which spans 1-3 batches depending on miss rate (confirmed:
+        # only 5 rebuilds fired over 10 batches at alpha=85/box=25 with delta=512).
+        # delta=1 forces a rebuild before every batch that added >=1 new active
+        # atom (a batch that adds 0 needs no rebuild -- nothing changed), which is
+        # the literal "rebuild every batch" behaviour intended by this fix.
+        # TWO-TIER GRID (dev, 2026-09-03, DEV_GRID_PERF_VALIDATION_20260903/): delta no
+        # longer needs to be 1 to preserve the S7 correctness guarantee. Every atom
+        # deposited since the last stable rebuild (positions_gpu[n_stable:n_active]) is
+        # now brute-force checked directly by all four kernels (see
+        # GRID_REBUILD_PERFORMANCE_OPTIMIZATION_SCOPED_20260903.md) -- delta only
+        # controls how large that brute-force "pending" range is allowed to grow before
+        # the next full cp.argsort rebuild folds it into the stable grid, a PERFORMANCE
+        # knob now, not a correctness one. Still defaults conservatively (K=10, per the
+        # scoping doc's explicit recommendation, not a guess) pending the
+        # baseline-vs-candidate violation-rate comparison in
+        # DEV_GRID_PERF_VALIDATION_20260903/ -- raise only after that passes.
         self._cached_global_sorted_indices = None
         self._cached_grid_params = None
         self._n_active_at_last_rebuild = 0
-        self._grid_rebuild_delta = max(512, int(cfg.get('batch_size', 512)) * 4)
+        self._grid_rebuild_delta = int(cfg.get('grid_rebuild_stride', 10))
         self._grid_needs_rebuild = True   # always rebuild on first batch
 
         # ── Miss-rate tracking ─────────────────────────────────────────────
@@ -901,11 +1816,47 @@ class GLADV3Simulator:
             self._hop_prob = 1.0
             self._kB_T = 0.025 # ~300K
 
+        # Physically-calibrated Arrhenius diffusion model (additive; see
+        # P1_PHYSICAL_DIFFUSION_MODEL_SCOPE_20260822.md §1). When enabled, hop_prob is
+        # no longer a flat per-hop-attempt constant applied over a fixed hop count --
+        # it is recomputed per batch in _step_batch() as
+        # hop_probability = 1 - exp(-hop_rate * dt_real), with dt_real derived from the
+        # real deposition time this batch of atoms represents. hop_rate itself (Hz) is
+        # constant for the run (only T, Ea, nu0 depend on it, all fixed per-run), so it
+        # is computed once here.
+        self.use_physical_diffusion_model = bool(cfg.get('use_physical_diffusion_model', False))
+        self.nu0_hz = float(cfg.get('nu0_hz', 8.2e11))
+        # D1 (2026-09-07): see 'diffusion_resolve_same_batch' cfg-defaults comment.
+        self._diffusion_resolve_same_batch = bool(cfg.get('diffusion_resolve_same_batch', False))  # DISABLED 2026-09-07, see cfg-defaults note
+        self._d1_reverts_last_batch = 0
+        self._d1_reverts_total = 0
+        if self.use_physical_diffusion_model:
+            beta_kT_phys = 1.0 / (self.kB * cfg['temperature'])
+            self._hop_rate_hz = self.nu0_hz * float(np.exp(-cfg['activation_energy'] * beta_kT_phys))
+        else:
+            self._hop_rate_hz = 0.0
+
+        # Mehl1999 Model-II EAM local-neighbour hop-barrier correction (opt-in; see
+        # config-defaults comment block and P1_CONTACT_RELAXATION_MODEL_DESIGN_20260823.md).
+        self.use_eam_neighbor_barrier = bool(cfg.get('use_eam_neighbor_barrier', False))
+        self.eam_e0_eV   = float(cfg.get('eam_e0_eV', 0.487))
+        self.eam_dNN_eV  = float(cfg.get('eam_dNN_eV', 0.274))
+        self.eam_dNNN_eV = float(cfg.get('eam_dNNN_eV', 0.027))
+        # Default cutoffs derived from collision_diameter (real Cu FCC nearest-neighbour
+        # distance, 0.256nm) and its sqrt(2) multiple (real Cu FCC next-nearest-neighbour
+        # in-plane distance, ~0.362nm) — self._cd is already set above this block.
+        _nn_cfg = cfg.get('eam_nn_cutoff_nm', None)
+        _nnn_cfg = cfg.get('eam_nnn_cutoff_nm', None)
+        self.eam_nn_cutoff_nm  = float(_nn_cfg) if _nn_cfg is not None else float(self._cd)
+        self.eam_nnn_cutoff_nm = float(_nnn_cfg) if _nnn_cfg is not None else float(self._cd) * 1.41421356
+
         self._shadow_range = cfg['box_width']
         cell_size_cfg = float(cfg.get('cell_size', 0.4))
         self.gpu_grid = GPUGrid(cell_size=cell_size_cfg, box_dims=(cfg['box_width'], cfg['box_depth']))
         self._kernel = None
         self._diff_kernel = None
+        self._relax_kernel = None
+        self._reemission_kernel = None
 
         # ── Grid OOM pre-check ────────────────────────────────────────────
         _nx_e = max(1, int(np.ceil(cfg['box_width']  / cell_size_cfg)))
@@ -925,18 +1876,23 @@ class GLADV3Simulator:
 
         if GPU_AVAILABLE:
             try:
-                kernel_source = (
-                    RAY_SPHERE_KERNEL_SOURCE
-                    if self.cfg.get('enable_surface_diffusion', False)
-                    else RAY_SPHERE_ONLY_KERNEL_SOURCE
-                )
+                needs_full = (self.cfg.get('enable_surface_diffusion', False)
+                              or self.cfg.get('enable_contact_relaxation', False)
+                              or self.cfg.get('enable_diffuse_reemission', False))
+                kernel_source = RAY_SPHERE_KERNEL_SOURCE if needs_full else RAY_SPHERE_ONLY_KERNEL_SOURCE
                 mod = cp.RawModule(code=kernel_source)
                 self._kernel = mod.get_function('RAY_SPHERE_KERNEL')
+                compiled = ['Ballistic']
                 if self.cfg.get('enable_surface_diffusion', False):
                     self._diff_kernel = mod.get_function('DIFFUSION_KERNEL')
-                    self._log("[V3] [OK] CUDA Kernels (Ballistic + Diffusion) compiled")
-                else:
-                    self._log("[V3] [OK] CUDA Kernel (Ballistic only) compiled")
+                    compiled.append('Diffusion')
+                if self.cfg.get('enable_contact_relaxation', False):
+                    self._relax_kernel = mod.get_function('CONTACT_RELAXATION_KERNEL')
+                    compiled.append('ContactRelaxation')
+                if self.cfg.get('enable_diffuse_reemission', False):
+                    self._reemission_kernel = mod.get_function('REEMISSION_KERNEL')
+                    compiled.append('Reemission')
+                self._log(f"[V3] [OK] CUDA Kernels ({' + '.join(compiled)}) compiled")
             except Exception as e:
                 self._log(f"[V3] [!] CUDA Compilation failed: {e}")
 
@@ -948,6 +1904,7 @@ class GLADV3Simulator:
             sys.exit(1)
 
         signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
         self._log(f"[V3] Initialised (Full-GPU VRAM persistence active)")
         self._log(f"     Backend: {'GPU (VRAM-ONLY)' if self._kernel else 'CPU fallback'}")
         self._log(f"     Batch Size: {self.cfg.get('batch_size', 512)}")
@@ -962,10 +1919,22 @@ class GLADV3Simulator:
                   f"Tm={self.cfg.get('melting_point_K', 1357.77):.2f} K | "
                   f"Ts/Tm={self.cfg.get('homologous_temperature', 0.0):.3f}")
         if self.cfg.get('enable_surface_diffusion', False):
-            self._log(f"     Surface diffusion: ON | Ea={self.cfg.get('activation_energy', 0.0):.3f} eV | "
-                      f"hop_prob={self._hop_prob:.3e}")
-            if self._hop_prob < 1e-5:
-                self._log("     [NOTE] Hop probability is extremely small; this run is effectively ballistic.")
+            if self.use_physical_diffusion_model:
+                self._log(f"     Surface diffusion: ON | PHYSICAL Arrhenius model | "
+                          f"Ea={self.cfg.get('activation_energy', 0.0):.3f} eV | "
+                          f"nu0={self.nu0_hz:.3e} Hz | hop_rate={self._hop_rate_hz:.3e} Hz "
+                          f"(dt_real, hop_prob computed per batch)")
+            else:
+                self._log(f"     Surface diffusion: ON | toy fixed-hop-count kernel | "
+                          f"Ea={self.cfg.get('activation_energy', 0.0):.3f} eV | "
+                          f"hop_prob={self._hop_prob:.3e}")
+                if self._hop_prob < 1e-5:
+                    self._log("     [NOTE] Hop probability is extremely small; this run is effectively ballistic.")
+            if self.use_eam_neighbor_barrier:
+                self._log(f"     Mehl1999 EAM barrier: ON | E0={self.eam_e0_eV:.3f}eV "
+                          f"dNN={self.eam_dNN_eV:.3f}eV dNNN={self.eam_dNNN_eV:.3f}eV | "
+                          f"NN_cutoff={self.eam_nn_cutoff_nm:.4f}nm NNN_cutoff={self.eam_nnn_cutoff_nm:.4f}nm "
+                          "(Model II linear fit, Table II; distance-shell proxy, not literal fcc-lattice sites)")
         else:
             self._log("     Surface diffusion: OFF (pure ballistic bead-spring mode)")
         if self.cfg.get('source_distance_cm') is not None:
@@ -1034,7 +2003,8 @@ class GLADV3Simulator:
             self.log_fh.flush()
 
     def _signal_handler(self, signum, frame):
-        self._log("[V3] SIGINT — draining checkpoint queue, then saving emergency ...")
+        sig_name = signal.Signals(signum).name
+        self._log(f"[V3] {sig_name} — draining checkpoint queue, then saving emergency ...")
         self.save_checkpoint(emergency=True)
         self._log("[V3] Emergency checkpoint saved. Exiting.")
         if getattr(self, 'log_fh', None) and not self.log_fh.closed:
@@ -1415,6 +2385,12 @@ class GLADV3Simulator:
             with h5py.File(filepath, 'w', libver='latest') as f:
                 f.create_dataset('positions', data=pos4d, compression='gzip', compression_opts=1, shuffle=True)
                 f.attrs['current_height']      = np.float32(max_height)
+                # NAMING NOTE (found 2026-08-30, not fixed to avoid breaking checkpoint-
+                # format compatibility for any existing reader keyed on this exact name):
+                # despite the name, this is the TOTAL atom count in `positions` (identical
+                # to len(pos4d)), INCLUDING the seed_atoms below, not "atoms deposited since
+                # seeding". seed_atoms + atoms_deposited will double-count the seed layer if
+                # naively summed to estimate a total.
                 f.attrs['atoms_deposited']     = n_atoms
                 f.attrs['seed_atoms']          = int(getattr(self, 'n_seed_atoms', 0))
                 f.attrs['radius']              = self._r
@@ -1438,6 +2414,9 @@ class GLADV3Simulator:
                 f.attrs['homologous_temperature_Ts_over_Tm'] = np.float32(cfg.get('homologous_temperature', 0.0))
                 f.attrs['surface_diffusion_enabled'] = bool(cfg.get('enable_surface_diffusion', False))
                 f.attrs['activation_energy_eV'] = np.float32(cfg.get('activation_energy', 0.0))
+                f.attrs['use_physical_diffusion_model'] = bool(cfg.get('use_physical_diffusion_model', False))
+                f.attrs['nu0_hz'] = np.float32(cfg.get('nu0_hz', 0.0))
+                f.attrs['hop_rate_hz'] = np.float32(getattr(self, '_hop_rate_hz', 0.0))
                 f.attrs['angular_distribution_enabled'] = bool(cfg.get('angular_distribution_enabled', False))
                 f.attrs['angular_distribution_type'] = cfg.get('angular_distribution_type', 'none')
                 f.attrs['angular_sigma_deg'] = np.float32(cfg.get('angular_sigma_deg', 0.0))
@@ -1738,7 +2717,8 @@ class GLADV3Simulator:
                                              np.int32(nx), np.int32(ny), np.int32(nz),
                                              np.float32(gm_x), np.float32(gm_y), np.float32(gm_z),
                                              np.float32(csize), np.int32(n), np.int32(n_active),
-                                             self._cd, t_results))
+                                             self._cd, t_results,
+                                             np.int32(self._n_active_at_last_rebuild), np.int32(n_active)))
             new_pos = origins + t_results[:, None] * flux_dir_gpu
         else:
             new_pos = cp.empty((n, 3), dtype=cp.float32)
@@ -1762,7 +2742,8 @@ class GLADV3Simulator:
                                                    np.int32(nx), np.int32(ny), np.int32(nz),
                                                    np.float32(gm_x), np.float32(gm_y), np.float32(gm_z),
                                                    np.float32(csize), np.int32(count_i), np.int32(n_active),
-                                                   self._cd, t_i))
+                                                   self._cd, t_i,
+                                                   np.int32(self._n_active_at_last_rebuild), np.int32(n_active)))
                 flux_i = cp.asarray(direction, dtype=cp.float32)
                 new_pos[start:stop] = origins_i + t_i[:, None] * flux_i
                 start = stop
@@ -1780,9 +2761,94 @@ class GLADV3Simulator:
             u = self._sticking_rng.random(size=n, dtype=cp.float32) # SEPARATE RNG stream
             reject = hit_mask & (u >= s)                             # u<s attaches; u>=s rejected
             self._last_batch_sticking_reject = int(cp.sum(reject))
-            mask_active[reject] = 0   # K_stick: state transition, NOT z mutation
+
+            # K_reemit: additive diffuse (cosine-law) re-emission for rejected atoms,
+            # instead of immediate discard. See P1_DIFFUSE_REEMISSION_MODEL_DESIGN_20260823.md.
+            # `reject` is narrowed in place to only the atoms that STILL end up discarded
+            # (exhausted all re-emission attempts) so the single `mask_active[reject] = 0`
+            # below is the only place mask_active gets zeroed for this mechanism.
+            if self.cfg.get('enable_diffuse_reemission', False) and self._reemission_kernel is not None:
+                n_reject = int(cp.sum(reject))
+                if n_reject > 0:
+                    reject_indices = cp.where(reject)[0]
+                    reject_pos = new_pos[reject_indices]
+                    stuck_flags = cp.zeros(n_reject, dtype=cp.int32)
+                    seed = np.random.randint(0, 1000000)
+                    grid_re = (n_reject + block - 1) // block
+                    # ROOT-CAUSE FIX (2026-08-24, fresh-eyes re-audit of the 0/598-restuck bug):
+                    # nx,ny,nz,gm_x,gm_y,gm_z,csize,n_reject,bw,bd were being passed as bare
+                    # Python int/float, NOT np.int32/np.float32, while every OTHER argument in
+                    # this same call already used explicit numpy scalar types. Confirmed via an
+                    # isolated minimal CuPy RawModule test that CuPy does NOT reliably marshal a
+                    # bare Python scalar mixed with explicitly-typed numpy scalars into a raw
+                    # kernel launch: a bare Python float argument came back read as 0 inside the
+                    # kernel in that isolated test. In REEMISSION_KERNEL this corrupted
+                    # `cell_size`/`grid_min` as seen by the kernel, making the neighbour-cell
+                    # index computation (`gx = floor((pxw-grid_min.x)/cell_size)`) land on
+                    # essentially the wrong cell every time -- confirmed directly: an
+                    # instrumented standalone copy of this kernel reported n_neighbours=0 for
+                    # every rejected atom with the bare-typed call, and n_neighbours=1-2 (the
+                    # physically correct answer -- every rejected atom is by construction
+                    # exactly collision_diameter from the neighbour that caused its rejection)
+                    # once every scalar below was explicitly wrapped, with no other change.
+                    # This is why re-emission never found a hit and 0/598 atoms ever re-stuck.
+                    # See P1_DIFFUSE_REEMISSION_MODEL_DESIGN_20260823.md for the full trace.
+                    self._reemission_kernel((grid_re,), (block,), (
+                        reject_pos, stuck_flags, self.positions_gpu,
+                        self.gpu_grid.cell_starts, global_sorted_indices,
+                        np.int32(nx), np.int32(ny), np.int32(nz),
+                        np.float32(gm_x), np.float32(gm_y), np.float32(gm_z), np.float32(csize),
+                        np.float32(self.cfg['reemission_normal_shell_factor']),
+                        self._cd, np.float32(s),
+                        np.int32(self.cfg['max_reemission_attempts']),
+                        np.float32(self.flux_dir[0]), np.float32(self.flux_dir[1]), np.float32(self.flux_dir[2]),
+                        np.int32(n_reject), np.float32(bw), np.float32(bd), np.uint32(seed),
+                        np.int32(self._n_active_at_last_rebuild), np.int32(n_active)))
+                    new_pos[reject_indices] = reject_pos   # write back final (re-emitted or last-tried) positions
+                    # DEAD-CODE REMOVAL (dev, 2026-09-03): `self._debug_last_stuck_flags` was
+                    # write-only project-wide (grepped both dev and live copies, zero reads) --
+                    # a leftover debug host-sync (.get()) forcing an unconditional GPU->host
+                    # transfer every batch this mechanism runs, for data nothing ever consumed.
+                    # `re_stuck` below already computes what's actually needed, entirely on-GPU,
+                    # no sync required for correctness (CuPy default-stream ordering guarantees
+                    # `re_stuck` sees the kernel's writes to stuck_flags without an explicit sync).
+                    re_stuck = stuck_flags.astype(cp.bool_)
+                    still_lost_indices = reject_indices[~re_stuck]
+                    reject = cp.zeros(n, dtype=cp.bool_)
+                    reject[still_lost_indices] = True      # narrow: only atoms that never re-stuck
+                    self._last_batch_sticking_reject = int(reject.sum())
+                    self._last_batch_reemission_restuck = int(cp.sum(re_stuck))
+                    self._last_batch_reemission_attempted = n_reject
+            mask_active[reject] = 0   # K_stick: state transition, NOT z mutation. `reject` above is
+                                       # narrowed to exhausted-re-emission atoms when that mechanism ran.
         else:
             self._last_batch_sticking_reject = 0
+
+        # 3b. Contact Relaxation Kernel — K_relax : S_active → S_active (domain-restricted)
+        # Runs BEFORE the (separate, pre-existing) diffusion kernel so relaxation settles the
+        # rigid ballistic contact point first; any subsequent diffusion hops start from there.
+        if self.cfg.get('enable_contact_relaxation', False):
+            active_bool_relax = mask_active.astype(cp.bool_)
+            n_active_relax = int(active_bool_relax.sum())
+            if n_active_relax > 0:
+                new_pos_relax = new_pos[active_bool_relax]
+                grid_r = (n_active_relax + block - 1) // block
+                self._relax_kernel((grid_r,), (block,), (new_pos_relax, self.positions_gpu,
+                                                            self.gpu_grid.cell_starts, global_sorted_indices,
+                                                            np.int32(nx), np.int32(ny), np.int32(nz),
+                                                            np.float32(gm_x), np.float32(gm_y), np.float32(gm_z),
+                                                            np.float32(csize),
+                                                            np.float32(self._relax_radius_nm),
+                                                            np.int32(self.cfg['contact_relaxation_num_candidates']),
+                                                            np.float32(self.cfg['contact_relaxation_bond_energy_eV']),
+                                                            np.float32(self.cfg['contact_relaxation_coord_shell_factor']),
+                                                            np.float32(self._cd),
+                                                            np.float32(self.flux_dir[0]), np.float32(self.flux_dir[1]),
+                                                            np.float32(self.flux_dir[2]),
+                                                            np.float32(self._kB_T_relax),
+                                                            np.int32(n_active_relax), np.float32(bw), np.float32(bd),
+                                                            np.int32(self._n_active_at_last_rebuild), np.int32(n_active)))
+                new_pos[active_bool_relax] = new_pos_relax
 
         # 4. Parallel Diffusion Kernel — K_diffuse : S_active → S_active (domain-restricted)
         if self.cfg['enable_surface_diffusion']:
@@ -1790,15 +2856,159 @@ class GLADV3Simulator:
             n_active_batch = int(active_bool.sum())
             if n_active_batch > 0:
                 new_pos_active = new_pos[active_bool]   # restrict to S_active domain
+                # D1 (2026-09-07): snapshot pre-hop positions so overlapping post-hop atoms
+                # can be REVERTED (not lifted) after the kernel. new_pos[active_bool] is a
+                # fresh copy (boolean fancy-index), so the kernel's in-place write below does
+                # not touch new_pos itself until the explicit write-back.
+                _d1_pre_hop = new_pos_active.copy() if self._diffusion_resolve_same_batch else None
                 seed = np.random.randint(0, 1000000)
                 grid_a = (n_active_batch + block - 1) // block
+
+                if self.use_physical_diffusion_model:
+                    # DWELL-TIME FIX (2026-08-23, post grid-rebuild-fix mechanistic audit):
+                    # the old `dt_real_s` below (this BATCH's real-time duration,
+                    # thickness_added_this_batch / growth_rate) was being used as the atom's
+                    # ENTIRE lifetime diffusion budget, applied once (hops_batch=1) at the
+                    # exact batch the atom lands, and never revisited. At tonight's
+                    # box=100nm/alpha=85 scale that gave dt_real_s ~ 6e-4 s and hop_prob
+                    # ~0.7% -- three orders of magnitude too small to be "how long this atom
+                    # is diffusively mobile before being buried". active_window_height does
+                    # NOT govern this (confirmed by direct trace: it only gates GPU-vs-host
+                    # residency, never touches diffusion eligibility) -- there was no dwell
+                    # concept in the code at all before this fix.
+                    #
+                    # tau_dwell_s: first-order physical estimate of real dwell time before an
+                    # atom is structurally locked by subsequent growth = (one atomic layer of
+                    # burial, `collision_diameter`) / (real vertical growth rate). THIS IS AN
+                    # ASSUMPTION, NOT A LITERATURE-SOURCED NUMBER -- no GLAD-specific
+                    # island-spacing/nucleation-density measurement was available in this
+                    # project's corpus to derive a rigorous dwell time from real data. Anyone
+                    # citing results produced with this fix should carry that caveat forward.
+                    # See P1_CONTACT_RELAXATION_MODEL_DESIGN_20260823.md `S8_DIFFUSION_DWELL_TIME_FIX`.
+                    tau_dwell_s = float(self._cd) / max(self.growth_rate, 1e-12)
+
+                    # Slice tau_dwell_s into `hops_batch` discrete Bernoulli attempts inside
+                    # the EXISTING kernel loop (glad_v3_core.py DIFFUSION_KERNEL, `for h in
+                    # range(hops)`, unchanged) rather than one aggregate shot. Slice count =
+                    # ceil(expected number of real hop events over the dwell time), so the
+                    # loop can realise genuine multi-hop movement (not just a single nudge),
+                    # capped for GPU-cost predictability. Per-slice dt and hop_prob are chosen
+                    # so the CUMULATIVE probability of >=1 hop across all slices reproduces
+                    # the same physically-correct aggregate 1-exp(-hop_rate*tau_dwell_s) as
+                    # before (Poisson-process identity: slicing a rate process into N
+                    # independent sub-intervals of dt=tau/N each with per-slice probability
+                    # 1-exp(-rate*dt) preserves the total-window probability exactly,
+                    # regardless of N) -- this is not a new physical assumption on top of
+                    # tau_dwell_s, only a finer, multi-hop-capable discretisation of it.
+                    expected_hops = self._hop_rate_hz * tau_dwell_s
+                    hops_cap = int(self.cfg.get('diffusion_dwell_hops_cap', 200))
+                    hops_batch = max(1, min(hops_cap, int(np.ceil(expected_hops)) if expected_hops > 0 else 1))
+                    dt_slice_s = tau_dwell_s / hops_batch
+                    hop_prob_batch = 1.0 - float(np.exp(-self._hop_rate_hz * dt_slice_s))
+                else:
+                    hop_prob_batch = float(self._hop_prob)
+                    hops_batch = int(self.cfg['diffusion_hops'])
+
+                _diag_out = cp.zeros(n_active_batch, dtype=cp.int32)  # TEMP DIAGNOSTIC
+                _diag_vals = cp.zeros(n_active_batch * 6, dtype=cp.float32)  # TEMP DIAGNOSTIC
                 self._diff_kernel((grid_a,), (block,), (new_pos_active, self.positions_gpu,
                                                           self.gpu_grid.cell_starts, global_sorted_indices,
-                                                          nx, ny, nz, gm_x, gm_y, gm_z, csize,
-                                                          float(self.cfg['diffusion_radius']), int(self.cfg['diffusion_hops']),
-                                                          float(self._hop_prob), float(self._kB_T),
-                                                          float(self._r), float(self._cd),
-                                                          n_active_batch, float(bw), float(bd), np.uint32(seed)))
+                                                          np.int32(nx), np.int32(ny), np.int32(nz),
+                                                          np.float32(gm_x), np.float32(gm_y), np.float32(gm_z),
+                                                          np.float32(csize),
+                                                          np.float32(self.cfg['diffusion_radius']), np.int32(hops_batch),
+                                                          np.float32(hop_prob_batch), np.float32(self._kB_T),
+                                                          np.float32(self._r), np.float32(self._cd),
+                                                          np.int32(n_active_batch), np.float32(bw), np.float32(bd), np.uint32(seed),
+                                                          _diag_out, _diag_vals,
+                                                          np.int32(1 if self.use_eam_neighbor_barrier else 0),
+                                                          np.float32(self.eam_e0_eV),
+                                                          np.float32(self.eam_dNN_eV),
+                                                          np.float32(self.eam_dNNN_eV),
+                                                          np.float32(self.eam_nn_cutoff_nm),
+                                                          np.float32(self.eam_nnn_cutoff_nm),
+                                                          np.int32(self._n_active_at_last_rebuild), np.int32(n_active)))
+                # DEAD-CODE REMOVAL (dev, 2026-09-03): both `self._debug_last_diffusion_flags`
+                # and `self._debug_last_diffusion_vals` were write-only project-wide (grepped
+                # both dev and live copies, zero reads) -- two more unconditional GPU->host
+                # syncs (.get()) every diffusion-enabled batch, for data nothing ever consumed.
+                # `_diag_out`/`_diag_vals` themselves are left untouched above (still passed
+                # into the kernel as real out-parameters) -- only the dead host-copy is removed.
+
+                # --- D1 (2026-09-07): diffusion same-batch-blindness overlap resolution ---
+                # The kernel above ran one parallel thread per diffusing atom against the
+                # frozen pre-batch snapshot; no thread saw another thread's in-flight hop, so
+                # two same-batch atoms can land < collision_diameter apart unnoticed
+                # (empirically 97.8-100 % of genuine overlaps are intra-batch --
+                # D1_DIFFUSION_KERNEL_CONTACT_RECHECK_DESIGN_20260907.md). Resolve here,
+                # deterministically, in deposition (index) order: any post-hop atom within cd
+                # of an already-accepted atom -- an established structure atom, or an
+                # earlier-index same-batch atom at its accepted position -- is REVERTED to its
+                # pre-hop position (that atom simply did not hop this batch). Revert, not
+                # lift: raising z to a contact floor would apply an uphill displacement the
+                # kernel's own dz>=0||Boltzmann acceptance never tested and would re-introduce
+                # the height ratchet, biasing void fraction. O(n_batch * n_batch) + one
+                # KD-tree over a thin near-front slab of the structure; n_batch ~= 512.
+                if self._diffusion_resolve_same_batch:
+                    try:
+                        # Two arrays, kept strictly separate (this is what the first attempt
+                        # got wrong -- it wrote wrapped coords into the write-back, so
+                        # non-hopping atoms the kernel leaves UNwrapped came out wrapped, and
+                        # reverted atoms came out unwrapped -> a mixed batch that wrecks the
+                        # grid at box 100):
+                        #   _wb  = the WRITE-BACK. Never wrapped/clipped. Reverted rows take
+                        #          the raw pre-hop position (== "this atom did not hop", which
+                        #          is exactly what the kernel does to a non-hopping atom).
+                        #   _q   = a QUERY-ONLY copy, x/y wrapped into [0,box), z shifted >=0,
+                        #          used solely to find overlaps via a periodic KD-tree.
+                        _post = cp.asnumpy(new_pos_active).astype(np.float64)
+                        _pre  = cp.asnumpy(_d1_pre_hop).astype(np.float64)
+                        _movd = np.any(_post[:, :3] != _pre[:, :3], axis=1)
+                        _nrev = 0
+                        if _movd.any():
+                            _cd2 = (float(self._cd) - 1e-4) ** 2
+                            _cdq = float(self._cd) - 1e-4
+                            _bwf, _bdf = float(bw), float(bd)
+                            _wb = _post.copy()                       # write-back, untouched
+                            _est_band = self.positions_gpu[:n_active]
+                            _zref = float(_post[:, 2].min()) - float(self._cd) - 0.01
+                            _est_band = _est_band[_est_band[:, 2] >= _zref]
+                            _est = cp.asnumpy(_est_band[:, :3]).astype(np.float64)
+                            # common z shift so every query point has z >= 1 (periodic tree
+                            # needs all coords in [0, boxsize); z axis is a non-periodic dummy)
+                            _zoff = min(_post[:, 2].min(), _est[:, 2].min() if len(_est) else 0.0) - 1.0
+                            def _wrapq(a):
+                                w = np.empty_like(a)
+                                w[:, 0] = np.mod(a[:, 0], _bwf)
+                                w[:, 1] = np.mod(a[:, 1], _bdf)
+                                w[:, 2] = a[:, 2] - _zoff
+                                return w
+                            _q = _wrapq(_post)
+                            _zmax = max(_q[:, 2].max(), (_wrapq(_est)[:, 2].max() if len(_est) else 0.0)) + 2.0
+                            _est_tree = cKDTree(_wrapq(_est), boxsize=[_bwf, _bdf, _zmax]) if len(_est) else None
+                            _acc_pts = _q.copy()                     # accepted query positions, index order
+                            for _j in np.nonzero(_movd)[0]:
+                                _p = _q[_j]
+                                _hit = (_est_tree is not None
+                                        and len(_est_tree.query_ball_point(_p, _cdq)) > 0)
+                                if not _hit and _j > 0:
+                                    _dx = _acc_pts[:_j, 0] - _p[0]; _dx -= _bwf * np.round(_dx / _bwf)
+                                    _dy = _acc_pts[:_j, 1] - _p[1]; _dy -= _bdf * np.round(_dy / _bdf)
+                                    _dz = _acc_pts[:_j, 2] - _p[2]
+                                    _hit = bool(np.any(_dx * _dx + _dy * _dy + _dz * _dz < _cd2))
+                                if _hit:
+                                    _wb[_j] = _pre[_j]              # revert: raw pre-hop, NOT wrapped
+                                    _acc_pts[_j] = _wrapq(_pre[_j:_j + 1])[0]
+                                    _nrev += 1
+                            if _nrev:
+                                new_pos_active = cp.asarray(_wb.astype(np.float32))
+                        self._d1_reverts_last_batch = _nrev
+                        self._d1_reverts_total += _nrev
+                    except Exception as _d1_exc:
+                        self._log(f"[D1][WARN] same-batch overlap resolution skipped this "
+                                  f"batch ({type(_d1_exc).__name__}: {_d1_exc}); "
+                                  f"positions left as the kernel produced them")
+
                 new_pos[active_bool] = new_pos_active   # write back to full array
 
         # 5. Direct Insertion — only insert active atoms (state-based, not z-based)
@@ -2229,7 +3439,7 @@ class GLADV3Simulator:
                           f"| beta_tangent={beta_tangent_deg:.2f} deg "
                           f"| beta_Tait={beta_tait_deg:.2f} deg "
                           f"| nearest_error={results['beta_error_deg']:.2f} deg "
-                          f"| {'PASS' if beta_pass else 'FAIL'}")
+                          f"| {'PASS' if beta_pass else 'WARN'} (informational only, see note below)")
             else:
                 results['beta_measured_deg'] = None
                 self._log("[VALIDATE] Not enough Z-bins for tilt regression.")
@@ -2257,7 +3467,31 @@ class GLADV3Simulator:
                       f"| {por_status}")
 
         # ── Overall gate ───────────────────────────────────────────────────
-        beta_ok = (results.get('beta_pass') is True) or (results.get('beta_status') == 'SKIPPED_HELICAL')
+        # 2026-08-27: beta_pass/beta_error_deg is DELIBERATELY EXCLUDED from the pass/fail
+        # gate (it used to gate via beta_ok). Root cause: this method fits a single global
+        # straight line to mean-X-per-Z-bin across ALL atoms/columns. On real multi-column
+        # growth, different columns drift laterally in different directions (seed placement,
+        # PBC wrapping, coalescence), so averaging X across columns at a given Z cancels out
+        # most of the true per-column tilt instead of measuring it -- the more real columns,
+        # the worse the cancellation. This has now produced a wrong near-0deg/near-90deg
+        # reading (vs. a trusted phase-correlation cross-check on the voxelized density grid,
+        # 05_INVERSE_FRAMEWORK/observation/extract_observables.py:_compute_column_tilt_phase)
+        # in every documented run at alpha=85 with diffusion/sticking/reemission mechanisms
+        # active: box=100/150/200 FLOORFIX runs (internal 2.12/1.16/7.32deg vs trusted
+        # 81.60/82.16/87.47deg), the sticking+reemission-only ablation (0.31 vs 65.41deg), and
+        # the combined sticking+reemission+diffusion campaign (3.43 vs 81.54deg) -- see
+        # SESSION_LOG.md 2026-08-26/2026-08-27 entries for the full trail. It has never once
+        # produced a correct number in that regime, so treating it as a hard gate produces
+        # chronic false FAILs / false RESEARCH_REQUIRED on scientifically usable runs. The
+        # number is still computed and logged above for visibility (a real bug producing an
+        # exact 0deg/NaN would still show up for a human to notice), but a mismatch here no
+        # longer fails the run. glad_v3_core.py (engine layer) is architecturally forbidden
+        # from importing the trusted observation-layer method directly (see
+        # 05_INVERSE_FRAMEWORK/EXECUTION_CONTEXT.json layer_imports: engine cannot_import
+        # observation, and vice versa) -- so any beta-mismatch flagged here must be manually
+        # cross-checked post-hoc with the trusted method before being treated as a real
+        # result; see PROTOCOLS/09_VALIDATION_PROTOCOL.md for that checklist step.
+        beta_ok = True
         porosity_ok = results.get('porosity_pass', False) or not bool(results.get('porosity_gate_required', False))
         passed = beta_ok and growth_pass and porosity_ok
         if passed and results.get('beta_status') == 'SKIPPED_HELICAL':
@@ -2270,6 +3504,10 @@ class GLADV3Simulator:
         elif results.get('porosity_pass') is False:
             self._log("[VALIDATE] Porosity is outside the uncalibrated bead-model reference window; "
                       "accepted as report-only, not a hard physics gate.")
+        if results.get('beta_pass') is False:
+            self._log("[VALIDATE] NOTE: beta mismatch above is informational only (not gating) -- "
+                      "cross-check with the trusted phase-correlation method on the checkpoint "
+                      "before treating it as a real result. See PROTOCOLS/09_VALIDATION_PROTOCOL.md.")
         return results
 
 
@@ -2363,6 +3601,23 @@ def main():
     #     → deterministic and reproducible (0 is a valid, explicit seed value)
     #   - if None (key absent from both CLI and YAML): leave RNGs unseeded
     #     → runs use OS entropy (non-reproducible) — distinct realizations each run
+    #
+    # RESUME-STAGE SEED OFFSET (2026-08-30): no checkpoint field persists RNG
+    # state, so a process that RESUMES from an existing checkpoint (crash-
+    # retry, or a deliberate periodic-restart pattern such as
+    # run_gridfix_queue_staged.sh) previously re-applied the SAME base seed
+    # as a fresh start -- replaying the identical np.random/cp.random draw
+    # sequence (e.g. ray-origin x,y sampling, `origins = cp.random.uniform(...)`
+    # at deposit_batch_gpu) at the start of every resumed stage instead of
+    # continuing it. Found while validating the periodic-restart fix for
+    # P1_GRIDFIX_CAMPAIGN_V1 -- caught before any real campaign data was
+    # generated under the bug (verified via the launch log: zero stage
+    # restarts had occurred on the live run before this fix landed). Fix:
+    # on a genuine resume, offset the base seed by a persistent per-run
+    # stage counter so each resumed stage draws a distinct, still fully
+    # deterministic/reproducible sub-seed instead of replaying stage 1. A
+    # run that never resumes (the overwhelming majority of this project's
+    # existing campaigns) is completely unaffected -- offset stays 0.
     sim_cfg = cfg.get('simulation', cfg)
     cli_seed = getattr(args, 'random_seed', None)
     yaml_seed = sim_cfg.get('random_seed', None) if isinstance(sim_cfg, dict) else None
@@ -2370,18 +3625,42 @@ def main():
     if chosen_seed is not None:
         try: chosen_seed = int(chosen_seed)
         except (TypeError, ValueError): chosen_seed = None
+
+    _is_resume = (not args.fresh) and any(
+        os.path.exists(os.path.join(cfg['checkpoint_dir'], _n))
+        for _n in ('checkpoint_v3_A.h5', 'checkpoint_v3_B.h5', 'checkpoint_v3_emergency.h5',
+                   cfg.get('checkpoint_filename', 'checkpoint_v3.h5'))
+    )
+    _seed_stage = 0
+    if _is_resume:
+        _counter_path = os.path.join(cfg['checkpoint_dir'], '.rng_stage_counter')
+        try:
+            _seed_stage = (int(open(_counter_path).read().strip()) + 1) if os.path.exists(_counter_path) else 1
+        except Exception:
+            _seed_stage = 1
+        try:
+            os.makedirs(cfg['checkpoint_dir'], exist_ok=True)
+            with open(_counter_path, 'w') as _f:
+                _f.write(str(_seed_stage))
+        except Exception:
+            pass
+
     if chosen_seed is not None:
+        effective_seed = chosen_seed if _seed_stage == 0 else (chosen_seed * 1_000_003 + _seed_stage) % (2**31 - 1)
         import random as _py_random
-        _py_random.seed(chosen_seed)
-        np.random.seed(chosen_seed)
+        _py_random.seed(effective_seed)
+        np.random.seed(effective_seed)
         try:
             import cupy as _cp_for_seed
-            _cp_for_seed.random.seed(chosen_seed)
-            print(f"[SEED] Seeded Python.random + NumPy + CuPy with random_seed = {chosen_seed}")
+            _cp_for_seed.random.seed(effective_seed)
+            print(f"[SEED] Seeded Python.random + NumPy + CuPy with random_seed = {effective_seed} "
+                  f"(base={chosen_seed}, resume_stage={_seed_stage})")
         except Exception as _seed_err:
-            print(f"[SEED] Seeded Python.random + NumPy with random_seed = {chosen_seed}  "
-                  f"(CuPy not seeded: {_seed_err})")
-        cfg['random_seed_used'] = chosen_seed
+            print(f"[SEED] Seeded Python.random + NumPy with random_seed = {effective_seed} "
+                  f"(base={chosen_seed}, resume_stage={_seed_stage})  (CuPy not seeded: {_seed_err})")
+        cfg['random_seed_used'] = effective_seed
+        cfg['random_seed_base'] = chosen_seed
+        cfg['random_seed_resume_stage'] = _seed_stage
     else:
         print("[SEED] No random_seed provided — RNGs use OS entropy (non-reproducible)."
               " Set simulation.random_seed in YAML for reproducible runs.")

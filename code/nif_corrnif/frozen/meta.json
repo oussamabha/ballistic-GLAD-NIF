@@ -1,0 +1,7 @@
+{
+  "checkpoint": "corrnif_alpha_only_seed0.pt",
+  "train_mse": 0.00014361752255354077,
+  "train_time_s": 72.3,
+  "source_npz": "/mnt/d/GLAD_PROJECT/02_PINN_NIF/pinn_training/runs/morphology_pipeline/corr_functions.npz",
+  "note": "Frozen alpha-only CorrNIF. Load in WP1/WP2/inversion instead of retraining."
+}

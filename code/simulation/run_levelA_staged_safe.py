@@ -25,6 +25,7 @@ import json
 import math
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -33,6 +34,29 @@ from pathlib import Path
 from typing import Any
 
 import h5py
+
+# -- Pause/Resume (PROTOCOLS/17_SIMULATION_PAUSE_RESUME_PROTOCOL.md), added
+# 2026-08-28. This runner already has a real, working resume mechanism
+# (checkpoint-height-based stage planning, re-scanned fresh on every
+# invocation) -- adds the two literal missing pieces: forward the signal to
+# the in-flight simulator subprocess so it checkpoints gracefully, and stop
+# the outer stage loop before starting the NEXT stage rather than mid-stage.
+_child_proc = None
+_should_stop = False
+
+
+def _signal_handler(signum, frame):
+    global _should_stop
+    _should_stop = True
+    print(f"\n[PAUSE] Signal {signum} received -- forwarding to the in-flight simulator "
+          f"subprocess (if any) and stopping before the next stage. Resume: re-run the "
+          f"same command.")
+    if _child_proc is not None and _child_proc.poll() is None:
+        _child_proc.send_signal(signum)
+
+
+signal.signal(signal.SIGTERM, _signal_handler)
+signal.signal(signal.SIGINT, _signal_handler)
 
 # --------------------------------------------------------------------------- #
 # Fixed locations (WSL only)
@@ -319,9 +343,11 @@ def run_one_stage(spec: dict[str, Any], jd: Path, target: float, use_load: bool,
 
     t0 = time.time()
     fatal_seen = False
+    global _child_proc
     with open(log_path, "w", encoding="utf-8") as logf:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, bufsize=1, env=env, cwd=str(ROOT))
+        _child_proc = proc
         for line in proc.stdout:  # type: ignore[union-attr]
             sys.stdout.write(line)
             sys.stdout.flush()
@@ -456,7 +482,11 @@ def write_run_metadata(spec: dict[str, Any], jd: Path, status: str,
         "runner": "run_levelA_staged_safe.py",
     })
     base.update(extra)
-    p.write_text(json.dumps(base, indent=2) + "\n", encoding="utf-8")
+    # Atomic write -- protects against partial-write corruption on crash
+    # (Protocol 17 requirement, added 2026-08-28).
+    tmp = p.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(base, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(p)
 
 
 # --------------------------------------------------------------------------- #
@@ -623,6 +653,9 @@ def run_job(spec: dict[str, Any], stages: list[float], args: argparse.Namespace)
 
     stage_results = []
     for i, target in enumerate(todo):
+        if _should_stop:
+            print(f"\n[PAUSE] Stopping before stage {int(target)} per signal request.")
+            break
         use_load = (not fresh) or (i > 0)
         if not do_run:
             res = run_one_stage(spec, jd, target, use_load, do_run=False)

@@ -425,3 +425,91 @@
   note   = {In preparation, companion manuscript},
   year   = {2026}
 }
+
+% ---------------------------------------------------------------------------
+% Added 2026-09-08 (O.B.H.A. instruction: audit web-escalation history and
+% transfer extracted-paper data into the bibliography). These five papers
+% supplied the SiO2 / HfO2 / Mo / W / Au angle-resolved series in the P3
+% cross-material corpus (DB rows row_origin=CANDIDATE_WEBESCALATION_20260816/17,
+% MASTER_KNOWLEDGE_INDEX.sqlite) but had no P3 bibliography entry. Bibliographic
+% data re-verified via web search 2026-09-08.
+% NOTE: the SiO2 source was mis-recorded as "Romero-Perez et al." in
+% WEB_ESCALATION_REPORT_20260816_P3_NEWMATERIALS.md and in the DB article_id
+% "romeroperez2025_ma18102225_sio2_oad"; the correct first author is B. Jia
+% (see WEB_ESCALATION_HISTORY_AUDIT_20260908.md). DOI/title/year are correct.
+% ---------------------------------------------------------------------------
+
+@article{jia2025sio2oad,
+  author  = {Jia, Bojie and Chen, Gang and Zhou, Sheng and Ma, Xiaofeng and
+             Zhang, Qiuyu and Geng, Yujia and Xu, Teng and Liu, Dingquan},
+  title   = {Low-Refractive-Index {SiO$_2$} Nanocolumnar Thin Films Fabricated by
+             Oblique Angle Deposition},
+  journal = {Materials},
+  year    = {2025},
+  volume  = {18},
+  number  = {10},
+  pages   = {2225},
+  doi     = {10.3390/ma18102225},
+  note    = {Open access (PMC12113613). Table 3 porosity($\alpha$) 7 pts; Table 4
+             column tilt $\beta(\alpha)$ 4 pts; refractive index $n(\alpha)$ at 640 nm.
+             P3 corpus SiO2 source. Author list corrected 2026-09-08 (was
+             mis-attributed to Romero-Perez in the 2026-08-16 web-escalation report).}
+}
+
+@article{tokas2014hfo2oad,
+  author        = {Tokas, R. B. and Jena, S. and Sarkar, P. and Polaki, Shyam and
+                   Thakur, S. and Basu, S. and Sahoo, N. K.},
+  title         = {Oblique Angle Deposition of {HfO$_2$} Thin Films: Investigation of
+                   Elastic and Micro Structural Properties},
+  year          = {2014},
+  eprint        = {1406.6858},
+  archivePrefix = {arXiv},
+  primaryClass  = {cond-mat.mtrl-sci},
+  doi           = {10.48550/arXiv.1406.6858},
+  note          = {arXiv preprint; no confirmed journal version located 2026-09-08.
+             Table 3: measured column tilt $\beta$ vs deposition angle $\alpha$
+             (FESEM, 5 samples, e-beam evaporation) -- P3 corpus HfO2 source,
+             HIGH-confidence direct table read.}
+}
+
+@article{rahmouni2025mo,
+  author  = {Rahmouni, K. and Bensalem, R. and Benhaya, A. and Martin, N.},
+  title   = {Electrical Resistivity, Wettability and Structural Properties of Oriented
+             Columnar {Mo} Thin Films},
+  journal = {Thin Solid Films},
+  year    = {2025},
+  volume  = {814},
+  pages   = {140632},
+  doi     = {10.1016/j.tsf.2025.140632},
+  note    = {P3 corpus Mo source: column tilt $\beta(\alpha)$ 3 pts
+             ($\alpha=40/60/80^\circ \rightarrow \beta=31/38/41^\circ$).
+             Full-text read, 2026-08-17 web escalation.}
+}
+
+@article{rodrigues2025w,
+  author  = {Rodrigues, A. and Martin, N. and Amiot, C. and Colas, M.},
+  title   = {Friction Anisotropy Dependence on Morphology of {GLAD} {W} Films},
+  journal = {Tribology International},
+  year    = {2025},
+  volume  = {206},
+  pages   = {110556},
+  doi     = {10.1016/j.triboint.2025.110556},
+  note    = {P3 corpus W source: full 8-point column tilt series
+             ($\alpha=0$--$85^\circ$, $\beta=0.1$--$37.3^\circ$) with per-point SEM
+             uncertainty. Full-text read, 2026-08-17 web escalation.}
+}
+
+@article{martin2025au,
+  author  = {Martin, N. and Martin, J. and Cote, J.-M. and Sthal, F. and
+             Gavoille, J. and Raschetti, M. and Oliveri, R.},
+  title   = {Low Temperature Dependence of Resistivity in Obliquely Sputter-Deposited
+             Gold Thin Films},
+  journal = {Surface and Coatings Technology},
+  year    = {2025},
+  volume  = {499},
+  pages   = {131884},
+  doi     = {10.1016/j.surfcoat.2025.131884},
+  note    = {CC-BY open access. P3 corpus Au source: column tilt $\beta$ at
+             $\alpha=70/80^\circ$ ($42/50^\circ$) + one model-derived porosity point.
+             Full-text read, 2026-08-17 web escalation.}
+}

@@ -111,7 +111,7 @@ def fig_h1h2(by_alpha, summ):
     ax.set_xlabel("Deposition angle α (°)", fontsize=11)
     ax.set_ylabel("Bead-sphere openness proxy $P_{\\rm bead}$ (%)", fontsize=11)
     ax.set_title("(a) H1: Bead-sphere openness proxy\n"
-                 "27 runs — 9 angles × 3 seeds, batch\_size=512", fontsize=10)
+                 "27 runs — 9 angles × 3 seeds, batch_size=512", fontsize=10)
     ax.set_xticks(sorted_a)
     ax.grid(True, linestyle="--", alpha=0.35)
     ax.legend(fontsize=8.5, loc="upper left")

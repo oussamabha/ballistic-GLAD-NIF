@@ -279,6 +279,12 @@ anisotropic optoelectronic elements \citep{chaffar2018,chaffar2019}
 and, more recently, as room-temperature ethanol/methanol gas sensors
 whose response depends on the deposition-angle-controlled porosity
 and column morphology \citep{benamor2026}.
+Literature surveys of GLAD-deposited thin films show a diverse palette
+of materials and deposition conditions: Cu and its oxides (Cu$_2$O, CuO)
+dominate at high angles ($\ang = 70\text{--}85^{\circ}$), while lower-angle
+($\ang < 60^{\circ}$) applications favour W, Ni, and metal oxides (WO$_3$, TiO$_2$),
+with temperatures ranging from room-temperature growth to substrate heating
+at 200--700\,K across different applications.
 Mapping out which angle (and, eventually, which pitch and height)
 gives a desired morphology currently requires either a full
 experimental deposition run or a full ballistic simulation for every
@@ -409,6 +415,16 @@ A follow-up extension used exclusively by the partial-realization-conditioning t
 (Section~\ref{ssec:disc_tier2}) added five further realizations at $\ang=85^{\circ}$
 (seeds 3--7, identical protocol), bringing that angle to $n=8$; all other experiments
 use the twelve-configuration dataset above.
+% [2026-09-08, per O.B.H.A. instruction -- scope-freeze provenance note; see P2_SCOPE_FREEZE_20260908.md]
+All voxel fields used here were generated with the simulator core as it stood when this
+dataset was archived. A subsequent grid-rebuild correction to that core (documented in
+the companion paper) post-dates this dataset and changes per-angle atom counts by up to a
+few percent, without altering the invariant topology class. Because every result in this
+paper is a statement about \emph{independent realizations of the same growth condition}
+being mutually indistinguishable from coordinates and angle alone -- a property of the
+ensemble, not of the specific core version -- regenerating the dataset on the corrected
+core is not expected to change any conclusion; it is left as future work, and the numbers
+below should be read as pertaining to the archived dataset.
 
 \subsection{FiLM-conditioned NIF architecture (Experiments 2--3)}
 \label{ssec:arch}
@@ -1914,6 +1930,14 @@ project documents.
     than by any modelling choice; any future extension of the
     parameter space inherits this same constraint.
 \end{enumerate}
+
+\subsection{Outlook: Fast morphology-to-optics workflow via NIF surrogates}
+\label{ssec:disc_optical_design}
+
+The companion paper \citep{companionP1} characterises the same ballistic simulator's optical properties via finite-difference time-domain (FDTD) electromagnetic modelling of Cu GLAD films across a pitch range of $9$--$260\,\mathrm{nm}$ at $\ang=85^{\circ}$, finding that the optical response (reflectance, transmittance, absorptance across $300$--$1500\,\mathrm{nm}$) is pitch-invariant—a consequence of the columnar independence encoded in the ballistic model.
+This optical validation, combined with the density-field surrogate developed here, opens a pathway to fast closed-loop optical design workflows: experimentalists could evaluate film morphology predictions from a trained NIF in milliseconds, combine those predictions with pre-computed optical lookup tables (or trained optical surrogates), and iterate on angle/pitch/height without running full FDTD simulations or experimental depositions.
+Such a workflow would be particularly valuable for applications like metasurfaces, thermal absorbers, or angle-tunable optical elements, where the morphology-to-optics mapping is critical and parameter-space screening is currently prohibitive.
+The present paper's demonstration that compact descriptors (pair-correlation, density profile) generalise where full fields do not suggests that analogous descriptor-based optical surrogates may also be learnable; systematic exploration of this cross-domain surrogate coupling is reserved for future work.
 
 % ============================================================
 \section{Conclusion}
