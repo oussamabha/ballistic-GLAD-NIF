@@ -81,80 +81,42 @@
 \date{\today}
 
 \begin{abstract}
-% [2026-09-07, per O.B.H.A. instruction -- abstract re-led on the invertibility result; human author to finalise wording]
-Glancing-angle deposition (GLAD) turns a single control knob---the
-deposition angle $\dang$---into a wide family of nanostructured thin-film
-morphologies used in optical coatings, sensors and catalysis. Relating a
-finished film back to the angle that made it, however, still relies on
-slow, destructive cross-sectional imaging. Here we show that a purely
-geometric ballistic growth model, containing no adjustable physical
-parameters, is faithful enough to be \emph{inverted}: gradient descent
-through a compact neural surrogate of the model recovers the deposition
-angle behind a measured two-point structural descriptor, converging to the
-same optimum as an exhaustive search (to $0.01^{\circ}$) from any starting
-guess.
-% [2026-09-08, per O.B.H.A. instruction -- honest noise-propagated precision from LENS1 WP1; human author to finalise phrasing]
-Propagating a realistic descriptor-measurement noise through the local
-sensitivity of the inverse map gives an achievable angular precision of
-$\approx1^{\circ}$ near grazing incidence, degrading to a few degrees at
-$\dang\sim65^{\circ}$; the inverse map is, counter-intuitively,
-best-conditioned exactly where direct column-tilt morphometry fails.
-Beyond that,
-what has not been established is how much of a film's internal structure a
-simplified, physics-based computer model can actually predict from
-$\dang$ alone. We address this with a
-ballistic simulator, in which atoms are treated as hard spheres that stick
-wherever they first touch the growing film, with no surface diffusion,
-across eight helical-rotation Cu film configurations
-($\dang=60^{\circ}$--$89^{\circ}$, height $h=\SI{300}{nm}$, helical
-pitch$=\SI{150}{nm}$; one production realization per angle). Void fraction
-(the empty-space fraction of the film)
-increases monotonically from $94.2\%$ to $99.4\%$ with $\dang$, tracking the
-expected shadowing-driven trend at this box/height convention (a lateral
-box-size dependence of the absolute values is characterised separately;
-Appendix~\ref{app:boxconv}). By
-contrast, we identify a clear limit to what is predictable: a
-corotating-frame oracle test shows that the exact position of an individual
-column carries no signal that generalizes across different random
-realizations of the same growth conditions -- a model given only spatial
-coordinates as input cannot recover it -- and we report this as a
-deliberate, central finding rather than a shortfall to be optimized away.
-What is predictable and reproducible is a statistical descriptor of the
-film's internal structure, the two-point pair correlation $h_g(r;\dang)$,
-which varies smoothly with $\dang$. A compact neural emulator
-(\textsc{CorrNIF}) reproduces angles held out of training with
-$R^2=0.992$, and a genuinely unseen prospective angle ($\dang=72^{\circ}$,
-later confirmed by a dedicated simulation) with $R^2=0.9907$ -- but neither
-result is more accurate than simple linear or PCHIP (standard curve-fitting)
-interpolation on the same held-out angles ($R^2=0.9909$), so predictive
-accuracy alone is not an advantage over much simpler methods.
-\textsc{CorrNIF}'s one demonstrated practical advantage is different:
-gradient descent through the frozen, trained model recovers the deposition
-angle behind a held-out target curve from five different starting points to
-the same value, matching an independent grid search to within
-$0.002^{\circ}$ --- an optimiser-convergence figure, not a measurement
-uncertainty.
-% [2026-09-08, per O.B.H.A. instruction -- add the noise-propagated precision; human author to finalise]
-Propagating an assumed per-bin descriptor noise $\sigma_h$ through the
-autodiff sensitivity $\lVert\partial h_g/\partial\dang\rVert$ of the frozen
-model gives a first-order achievable precision
-$\sigma_{\dang}\simeq\sigma_h/\lVert\partial h_g/\partial\dang\rVert$; for
-$\sigma_h=0.01$ this is $\approx0.9^{\circ}$ at $\dang=89^{\circ}$ rising to
-$\approx2.4^{\circ}$ at $\dang=65^{\circ}$, because
-$\lVert\partial h_g/\partial\dang\rVert$ increases monotonically toward
-grazing incidence (a $2.6\times$ range over $\dang=63$--$89^{\circ}$).
-An illustrative optical calculation (treating the film's
-columns as aligned tungsten cylinders, via the Maxwell-Garnett
-effective-medium approximation) predicts a large difference in refractive
-index for light polarized parallel versus perpendicular to the columns
-(form birefringence $\Delta n\sim 0.3$--$0.8$), but strong absorption for
-one polarization direction and high sensitivity to exactly how the solid
-fraction is defined mean this cannot be claimed as a usable polarization-device
-design window; we report it as a loss-aware screening illustration, not a
-device prediction. Together, these results define a simulation-only
-workflow for ranking candidate helical GLAD geometries by their statistical
-morphology, with the limits of predictive reach established as an explicit
-finding rather than left implicit, and with quantitative optical and
+% [2026-09-08, per O.B.H.A. instruction -- trimmed 650 (LaTeX-token count) / ~518 (prose)
+%  words to ~250 for submission; leads with the prior-art-checked novelty claim (no prior
+%  GLAD morphology->angle inversion exists) and the non-destructive-characterisation framing;
+%  the two duplicated noise-propagation paragraphs and the redundant 0.002 deg optimiser
+%  figure were merged into one honest sigma_alpha sentence. Human author to finalise wording.]
+Glancing-angle deposition (GLAD) turns a single control parameter, the
+deposition angle $\dang$, into a wide family of nanostructured thin-film
+morphologies used in optical coatings, sensors and catalysis, but
+recovering $\dang$ from a finished film still relies on slow, destructive
+cross-sectional imaging. We show that a parameter-free, purely geometric
+ballistic growth model is faithful enough to be \emph{inverted} -- no prior
+work inverts GLAD morphology to recover deposition angle -- turning that
+destructive characterisation into a non-destructive one: measure the
+two-point structural correlation $h_g(r;\dang)$, then invert the model.
+Gradient descent through a compact neural surrogate (\textsc{CorrNIF})
+recovers $\dang$ from a measured $h_g$ curve, converging to the same
+optimum as an exhaustive search from any starting point; propagating
+realistic descriptor noise through the inverse map's local sensitivity
+gives an achievable precision $\sigma_{\dang}\approx0.9^{\circ}$ near
+grazing incidence, degrading to a few degrees at $\dang\sim65^{\circ}$ --
+the map is, counter-intuitively, best-conditioned exactly where direct
+column-tilt morphometry fails. Across eight helical-rotation Cu
+configurations ($\dang=60$--$89^{\circ}$, $h=\SI{300}{nm}$), void fraction
+increases monotonically from $94.2\%$ to $99.4\%$ with $\dang$, tracking
+the expected shadowing trend. By contrast, we identify an explicit limit to
+predictability: the exact position of an individual column carries no
+signal that generalizes across realizations of the same growth conditions,
+which we report as a central finding rather than a shortfall.
+\textsc{CorrNIF} reproduces held-out and prospective angles with
+$R^2\approx0.99$, though no more accurately than simple interpolation --
+its practical advantage is the inversion itself, not raw predictive
+accuracy. An illustrative Maxwell-Garnett optical calculation suggests
+strong form birefringence but is reported only as a loss-aware screening
+illustration, not a device prediction. Together, these results define a
+simulation-only workflow for ranking candidate GLAD geometries by
+statistical morphology, with predictive limits stated explicitly and
 material-specific calibration left to dedicated experiments.
 \end{abstract}
 
