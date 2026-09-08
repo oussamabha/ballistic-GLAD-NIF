@@ -96,8 +96,9 @@ Glancing-angle deposition (GLAD) turns a single control parameter, the
 deposition angle $\dang$, into a wide family of nanostructured thin-film
 morphologies used in optical coatings, sensors and catalysis, but
 recovering $\dang$ from a finished film still relies on slow, destructive
-cross-sectional imaging. We show that a parameter-free, purely geometric
-ballistic growth model is faithful enough to be \emph{inverted} -- no prior
+cross-sectional imaging. We show that a purely geometric ballistic growth
+model, with no physical parameter fitted to the target data, is faithful
+enough to be \emph{inverted} -- no prior
 work inverts GLAD morphology to recover deposition angle -- turning that
 destructive characterisation into a non-destructive one: measure the
 two-point structural correlation $h_g(r;\dang)$, then invert the model.
@@ -183,8 +184,9 @@ tangent nor the Tait/cosine relation and that the tilt depends on the
 deposited material through its melting temperature, heat of formation and
 lattice structure \citep{zhu2012tilting,alvarez2014beyondtangent,barranco2016},
 with the measured tilt typically falling below both empirical rules
-\citep{alvarez2014beyondtangent}.  A parameter-free geometric model is
-therefore tested against the \emph{trend} in tilt with $\dang$ and against
+\citep{alvarez2014beyondtangent}.  A geometric model with no physical
+parameter fitted to this comparison is therefore tested against the
+\emph{trend} in tilt with $\dang$ and against
 the material family it is compared to as a whole, not against any single
 material's absolute tilt.
 Despite their computational efficiency, ballistic models are known to
@@ -2213,19 +2215,29 @@ models as a more rigorous alternative.
 Figure~\ref{fig:beta_alpha} compares the simulated column-tilt angle
 $\beta$ against deposition angle $\dang$ over the full
 $\dang=60^{\circ}$--$89^{\circ}$ range, against SEM cross-sectional tilt
-measurements for GLAD Cu and its oxides and against the cosine and tangent
-rules. The tilt is read from the eigenvector of the smallest eigenvalue of
+measurements for GLAD Cu and its oxides -- including two previously
+unincorporated metallic-Cu series from \citet{chaffarhabilitation2020},
+glass substrate, thermal-evaporation GLAD -- and against the cosine and
+tangent rules. The tilt is read from the eigenvector of the smallest eigenvalue of
 the local density-field structure tensor (occupancy-weighted median with a
 16--84 band); this density-adaptive estimator does not require the
 individual columns to be watershed-separable and therefore returns a value
 across the whole angular range, unlike the column-segmentation estimators
 that fail once the film is near-continuous ($\dang\lesssim75^{\circ}$) or
 its columns are too sparse to label reliably ($\dang\gtrsim87^{\circ}$).
-Measured this way, the parameter-free ballistic model reproduces the Cu /
-Cu$_2$O / CuO SEM tilt to within $\approx3^{\circ}$ across the range
-($41^{\circ}$ vs.\ $44^{\circ}$ at $\dang=60^{\circ}$; $54^{\circ}$ vs.\
-$52$--$53^{\circ}$ at $75^{\circ}$; $64^{\circ}$ vs.\ $60$--$63^{\circ}$ at
-$85^{\circ}$). It tracks the empirical cosine rule closely and lies well
+% [2026-09-09, per O.B.H.A. instruction -- widened comparison range after adding the
+%  Chaffar Akkari 2020 habilitation Cu anchors (FC2020_03/04, in-house, previously
+%  unused in this figure); the earlier "within ~3 deg" text no longer held once these
+%  were included and is corrected here rather than left overclaiming a tighter
+%  agreement than the fuller anchor set actually shows. Human author to finalise
+%  wording.]
+Measured this way, the ballistic model -- no physical parameter fitted to
+this comparison -- reproduces the Cu /
+Cu$_2$O / CuO SEM tilt to within the experimental anchors' own spread
+across the range ($41^{\circ}$ vs.\ $35$--$44^{\circ}$ at $\dang=60^{\circ}$;
+$54^{\circ}$ vs.\ $52$--$57^{\circ}$ at $75^{\circ}$; $64^{\circ}$ vs.\
+$55$--$63^{\circ}$ at $85^{\circ}$, the low end set by one of the two
+Chaffar Akkari 2020 habilitation series). It tracks the empirical cosine rule closely and lies well
 below the tangent rule for $\dang\geq75^{\circ}$, consistent with the
 survey finding that real column tilt sits below the tangent rule and that
 neither rule is universal
@@ -2250,9 +2262,10 @@ skeleton is set at the metal-flux self-shadowing stage and its orientation
 is approximately preserved through post-deposition oxidation
 \citep{mock2016coreshell}, the oxide cross-sectional tilt is taken as a
 reasonable proxy for the geometric tilt, not as an identical quantity.
-Whether the parameter-free geometric agreement reported here extends across
-materials, with the per-material hard-sphere radius as the only change, is
-the subject of a companion study \citep{companionP3}.
+Whether the geometric agreement reported here -- with no physical parameter
+fitted to the target data -- extends across materials when only the
+per-material hard-sphere radius is changed, is the subject of a companion
+study \citep{companionP3}.
 % [2026-09-08, per O.B.H.A. instruction -- estimator-provenance paragraph (adversarial-referee lens); full per-claim table in P1_ESTIMATOR_PROVENANCE_20260908.md, expand to an appendix if the venue allows.]
 \paragraph{Estimator provenance.}
 Column tilt is read from the eigenvector of the smallest eigenvalue of the
@@ -2277,7 +2290,8 @@ are box-independent.
   \centering
   \includegraphics[width=\linewidth]{fig_p1_beta_alpha_structure_tensor}
   \caption{Column-tilt angle $\beta$ versus deposition angle $\dang$.
-    \emph{Red:} the parameter-free ballistic model, tilt read from the
+    \emph{Red:} the ballistic model (no physical parameter fitted to this
+    comparison), tilt read from the
     density-field structure tensor (line/markers = occupancy-weighted
     median; shaded = 16--84 band, interpolated from the values measured at
     $\dang=60/75/85^{\circ}$). \emph{Open orange triangles:} the same model
