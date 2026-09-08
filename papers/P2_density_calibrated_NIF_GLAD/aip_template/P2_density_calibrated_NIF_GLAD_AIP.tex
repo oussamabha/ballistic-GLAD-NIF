@@ -1900,9 +1900,24 @@ in mind when reading the results of this paper alongside other
 project documents.
 
 \begin{enumerate}
-  \item \textit{Single film height and pitch.} All results are for
-    $h = \SI{300}{nm}$, pitch $= \SI{150}{nm}$; generalization
-    to other pitches or heights is not tested.
+  \item \textit{Single film height and pitch, and pitch is partly
+    confounded with angle.} All results are for $h = \SI{300}{nm}$,
+    pitch $= \SI{150}{nm}$; generalization to other pitches or heights is
+    not tested. A targeted check projecting an $\ang=85^{\circ}$
+    pitch sweep ($9$--$\SI{260}{nm}$) onto the PCA plane of the
+    angle-sweep two-point descriptor $h_g(r;\ang)$ finds that varying
+    pitch moves the descriptor $0.75\times$ as far along the dominant
+    angle direction as the full $\ang=60$--$89^{\circ}$ sweep itself,
+    with more than half the tested pitches landing within a
+    seed-to-seed scatter radius of a \emph{different} angle's
+    descriptor (e.g.\ the $\ang=85^{\circ}$, pitch$=\SI{9}{nm}$
+    descriptor is closer to $\ang=87^{\circ}$, pitch$=\SI{150}{nm}$
+    than to any other $\ang=85^{\circ}$ realization). Angle and pitch
+    are therefore \emph{partly confounded} in this descriptor: the
+    companion inversion result \citep{companionP1} recovers $\ang$
+    correctly only under the fixed-pitch assumption of the primary
+    campaign, and a joint $(\ang,\text{pitch})$ inversion would need a
+    second, pitch-sensitive observable to break the degeneracy.
   \item \textit{Ballistic model only.} The density fields are from
     a diffusion-free bead simulator; real Cu GLAD films at
     $\ang > 80^{\circ}$ may have structural differences.
