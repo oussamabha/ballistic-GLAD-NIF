@@ -102,6 +102,37 @@ kernel; deliberately does not claim a calibrated ballistic run (that is out of s
 explicitly as future work). Contains the NEB result JSON and driver script, the manuscript, bib,
 and the two result figures with their generator script.
 
+### P5 — [`papers/P5_material_generalization_ballistic_GLAD/`](papers/P5_material_generalization_ballistic_GLAD/)
+*Deposition Angle, Not Material Identity, Sets Void Fraction in Purely Ballistic
+Glancing-Angle Deposition: A 14-Metal Simulation Study*
+
+A controlled simulation study, independent of the P1-P3 pipeline and P4's atomistic
+scope. Runs the same purely ballistic deposition model for 14 elemental metals
+(melting points 923-3695 K) at three deposition angles, changing nothing between
+materials except each metal's tabulated covalent radius. Finds void fraction is
+material-invariant to <1 pp at every angle despite atom count varying by more than
+2x, and that a pre-registered melting-point-dependence test for the column-tilt
+offset fails (|r|=0.41, permutation p=0.16, n=13) -- material identity enters
+ballistic GLAD morphology only through the atomic length scale, not the packing.
+Complementary to the literature-corpus negative result reported separately (a
+companion, non-staged manuscript). Contains the manuscript, bib, the two result
+figures with generator script, and the underlying per-run regression CSV/script.
+
+### P6 — [`papers/P6_fullwave_optics_real_GLAD_morphology/`](papers/P6_fullwave_optics_real_GLAD_morphology/)
+*Full-Wave Optical Response of Simulated Cu Glancing-Angle Films: FDTD on
+Voxelised Ballistic Morphology versus Measured Mueller-Matrix Ellipsometry*
+
+Runs finite-difference time-domain (FDTD, MEEP) electromagnetic simulations
+directly on the voxelised morphology of the ballistic GLAD model, with a
+validated Nicolson-Ross-Weir index retrieval, literature material dispersion,
+and an oxide core-shell geometry, then compares to a real Cu GLAD film measured
+by Mueller-matrix ellipsometry. Three of four adjustable Mueller elements move
+toward the measured value under realisation averaging; the dominant
+depolarisation channel is shown to be structurally inaccessible to that
+averaging method, identifying depolarisation modelling as the principal open
+problem. A nine-angle void-fraction/index sweep is also reported. Contains the
+manuscript, bib, and the two result figures with generator script.
+
 ---
 
 ## Repository structure
