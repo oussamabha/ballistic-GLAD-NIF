@@ -20,6 +20,7 @@
 \usepackage{graphicx}
 \usepackage{siunitx}
 \usepackage{booktabs}
+\graphicspath{{../figures/publication/}}
 
 \begin{document}
 
@@ -110,7 +111,19 @@ Boisvert and Lewis~\cite{boisvert1997} (\SI{0.49}{eV}, their own EAM/MD
 Arrhenius fit) and Mehl \textit{et al.}~\cite{mehl1999} model-II
 (\SI{0.487}{eV}) to \SIrange{0.02}{0.03}{eV}; Zhang \textit{et
 al.}~\cite{zhang2011}'s isolated-adatom value (\SI{0.66}{eV}) is the
-outlier. The resulting diffusion length is
+outlier.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{P4_neb_hop_barrier}
+\caption{Minimum-energy path for the Cu(100) adatom hop on the Mishin
+\textit{et al.}~\cite{mishin2001} EAM potential (7-image NEB, this work),
+with the three literature comparison barriers overlaid.}
+\label{fig:neb}
+\end{figure}
+
+The minimum-energy path is shown in Fig.~\ref{fig:neb}. The resulting
+diffusion length is
 
 \begin{table}[t]
 \caption{Room-temperature Cu adatom diffusion length before burial.}
@@ -133,13 +146,31 @@ settle adatoms locally.
 
 \subsection{The kernel cannot reach that scale}
 \label{ssec:kernel}
-The geometry--kinetics decomposition at the one height-matched deposition angle
-(\ang{89}, \SI{300}{nm}) shows the diffusion kernel at dwell-hop cap 1 produces a
-bounded, single-parameter correction: the largest-component fraction goes from
-\num{0.997} to \num{0.956} (both connected, both percolating in both directions),
-atom count rises \SI{14}{\percent} (diffusion fills in, it does not disperse),
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{P4_geometry_kinetics_decomposition}
+\caption{Geometry--kinetics decomposition at the two height-matched
+deposition angles (\ang{82} vs.\ the nearest \ang{80} ballistic reference,
+2\si{\degree} offset; \ang{89}, matched exactly), diffusion-off vs.\
+diffusion-on at dwell-hop cap 1. Both points show the same signature: film
+stays fully connected, mass increases (diffusion fills in rather than
+disperses), and interpenetration does not worsen.}
+\label{fig:decomp}
+\end{figure}
+
+The geometry--kinetics decomposition at the two height-matched deposition
+angles (Fig.~\ref{fig:decomp}) shows the diffusion kernel at dwell-hop cap 1
+produces a bounded, single-parameter correction. At \ang{89} (the exactly
+matched point) the largest-component fraction goes from \num{0.997} to
+\num{0.956} (both connected, both percolating in both directions), atom
+count rises \SI{14}{\percent} (diffusion fills in, it does not disperse),
 interpenetration does not worsen, and column tilt is unchanged to within
-\SI{1}{\degree}. Lower deposition angles are directionally consistent. Separately,
+\SI{1}{\degree}. At \ang{82} (vs.\ the nearest \ang{80} ballistic reference,
+\SI{2}{\degree} offset) the same pattern holds: connectivity stays at
+\num{0.99998}, atom count rises \SI{22}{\percent}, and interpenetration
+falls rather than worsens. Lower deposition angles are directionally
+consistent. Separately,
 a hop-budget sweep finds the kernel is effectively binary: at budget $\le 2$ the
 effect is mild, and above it the film over-densifies catastrophically, with no
 intermediate regime reachable by parameter change. The reason is structural: the
@@ -158,12 +189,15 @@ $L_D \sim \SI{20}{30}{nm}$ regime: a redesigned kernel with an expanding-ring
 contact search, whose reach is set by $L_D$ rather than by a fixed grid stencil,
 is required before the anchor can be used inside a calibrated ballistic run.
 
-A separate short-timescale molecular-dynamics deposition test measures mechanical
-settling of a landed atom into the nearest favourable site, on a picosecond
-window; that is a different quantity from thermally activated surface diffusion,
-which needs milliseconds to seconds of real time to accumulate the
-\num{1e3}--\num{1e4} hops behind $L_D$. The two should not be combined into a
-single calibrated mobility parameter.
+A separate short-timescale molecular-dynamics deposition test (LAMMPS,
+\num{2000} Langevin relaxation steps per atom, a \num{216}-atom Cu(100)
+slab seed, $\alpha=\ang{85}$) measures mechanical settling of a landed atom into
+the nearest favourable site, on a picosecond window: \num{49}/\num{50}
+sequentially deposited atoms mechanically join the main cluster within
+their relaxation window. That is a different quantity from thermally
+activated surface diffusion, which needs milliseconds to seconds of real
+time to accumulate the \num{1e3}--\num{1e4} hops behind $L_D$. The two
+should not be combined into a single calibrated mobility parameter.
 
 % ============================================================
 \section{Conclusion}
@@ -201,13 +235,14 @@ publisher policies.
 \item \textbf{Consent for publication:} Not applicable.
 \item \textbf{Data availability:} The NEB input decks, the diffusion-length
   calculation, and the kernel-probe run configurations supporting the
-  findings of this study are available from the corresponding author upon
-  reasonable request.
+  findings of this study are permanently archived at Zenodo,
+  DOI: \href{https://doi.org/10.5281/zenodo.22707350}{10.5281/zenodo.22707350}, mirroring the GitHub repository
+  \url{https://github.com/oussamabha/ballistic-GLAD-NIF}.
 \item \textbf{Materials availability:} Not applicable.
 \item \textbf{Code availability:} The NEB, diffusion-length, and
   geometry--kinetics decomposition analysis code supporting the findings of
-  this study are available from the corresponding author upon reasonable
-  request.
+  this study are permanently archived at Zenodo, DOI: \href{https://doi.org/10.5281/zenodo.22707350}{10.5281/zenodo.22707350},
+  mirroring the GitHub repository \url{https://github.com/oussamabha/ballistic-GLAD-NIF}.
 \item \textbf{Author contribution:} O.B.H.A.: Conceptualization, Methodology,
   Software, Investigation, Formal analysis, Writing -- original draft. B.G.:
   Supervision, Writing -- review \& editing. F.C.A.: Supervision (principal),

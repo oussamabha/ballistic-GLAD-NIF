@@ -1949,6 +1949,43 @@ retraining does not change the verdict (permutation $p = 0.35$ and $p = 0.53$
 over $56$ cross-realisation pairs), which rules out practically achievable data
 scarcity as the cause.
 
+\paragraph{An information-theoretic bound, not just another failed attempt.}
+Two further diagnostics convert this from an empirical failure into a
+provable, scale-resolved ceiling, using only the multi-seed density fields
+already on disk (3--8 seeds per angle, all nine simulated angles;
+$\mathrm{rng}=\mathtt{default\_rng(0)}$ and $\mathtt{default\_rng(1)}$ for
+the two spatial-shuffle nulls below, fixed for exact reproducibility). First,
+the conditional entropy $H(\mathrm{occ}\mid x,y,z,\ang)$ -- computed directly
+from the fraction of independent realisations occupying each voxel, occupancy
+threshold at $0.5$ of the max-normalised density -- equals a
+spatially-shuffled null (each seed's occupancy permuted within the film band)
+to within $0.1$--$0.5\%$ at \emph{every} one of the nine angles individually
+($0.51$ bits observed vs.\ $0.51$ bits null, pooled; per-angle ratio
+$0.995$--$1.003$). Coordinates and angle therefore carry, to measurement
+precision, zero bits of realisation-invariant spatial structure beyond the
+$\ang$-conditioned mean occupancy envelope ($H(\mathrm{occ}\mid\ang)=0.74$
+bits alone, vs.\ $0.51$ bits with $x,y,z$ added). This bounds the accuracy
+ceiling at $0.77$--$0.82$ and the \iou{} ceiling at $0.35$--$0.49$ (against a
+single held-out realisation) for \emph{any} coordinate-conditioned
+architecture, not just the specific networks tried above.
+
+Second, a coarse-graining sweep ($L=2$--$50$\,nm block-averaging) finds no
+predictability length scale within this simulation box: the pairwise
+seed-to-seed correlation of coarse density fields stays below $0.05$ up to
+$32$\,nm and only begins to rise at $50$\,nm ($r=0.226$, half the box width),
+so independent realisations do not average into a shared spatial pattern at
+any accessible scale. The constructive counterpart of this measurement is
+that it also gives an \emph{achievable}, non-trivial target: a
+leave-one-seed-out majority-vote field (no learning, just the other seeds'
+consensus occupancy) reaches $\iou\approx0.40$--$0.44$ at every coarse-graining
+scale tested -- an order of magnitude above the $\Delta\iou=+0.029$ this
+paper's best trained network achieves at its single non-trivial angle. The
+gap between $0.43$ achievable and $\sim\!0.03$ delivered is not explained by
+the information ceiling (which permits up to $0.35$--$0.49$); it is a label
+design shortfall in how the training target was framed, not evidence that
+voxel occupancy is unrecoverable in any form -- the ensemble-consensus
+target above is one directly learnable reformulation future work should test.
+
 The broader result is a strengthened negative conclusion, corroborated by four
 architecture-independent checks (a classical stochastic-reconstruction
 baseline, an independent global-connectivity descriptor, a spatially-aware
@@ -1974,12 +2011,14 @@ directly to other stochastic-microstructure surrogate problems.
 \item \textbf{Data availability:} The voxel-occupancy training/test arrays,
   the coarse-graining and information-ceiling analysis outputs, and the
   trained surrogate checkpoints supporting the findings of this study are
-  available from the corresponding author upon reasonable request.
+  permanently archived at Zenodo, DOI: \href{https://doi.org/10.5281/zenodo.22707350}{10.5281/zenodo.22707350}, mirroring
+  the GitHub repository \url{https://github.com/oussamabha/ballistic-GLAD-NIF}.
 \item \textbf{Materials availability:} Not applicable.
 \item \textbf{Code availability:} The voxelisation, surrogate-training
   (dense CNN and local-conditioning variants), coarse-graining sweep, and
   information-ceiling analysis code supporting the findings of this study
-  are available from the corresponding author upon reasonable request.
+  are permanently archived at Zenodo, DOI: \href{https://doi.org/10.5281/zenodo.22707350}{10.5281/zenodo.22707350},
+  mirroring the GitHub repository \url{https://github.com/oussamabha/ballistic-GLAD-NIF}.
 \item \textbf{Author contribution:} O.B.H.A.\ designed and performed the
   analysis, wrote the code, and drafted the manuscript. All authors reviewed
   and approved the final manuscript.

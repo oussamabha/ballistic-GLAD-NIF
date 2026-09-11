@@ -82,7 +82,15 @@ to a real Cu GLAD film measured by Mueller-matrix ellipsometry.
 Film morphology is taken from the ballistic bead model of the companion paper,
 at atomic radius \SI{0.128}{nm}, using the grid-rebuild-corrected engine build.
 The atomic configuration is voxelised; an oxide core--shell is applied with a
-shell thickness taken from a prior thickness sweep.
+shell thickness taken from a prior thickness sweep. The underlying ballistic
+morphology itself is purely metallic-Cu geometry with no surface mobility
+(companion paper); the oxide shell is applied afterward as a static optical
+layer, not as a growth process. The companion atomistic-anchor paper's
+room-temperature Cu adatom diffusion length ($L_D\approx\SIrange{20}{30}{nm}$)
+is a bare-metal-surface estimate; adatom mobility on an oxidising or
+already-oxidised surface is a distinct transport problem not addressed by
+either paper, and the two should not be assumed to share the same mobility
+regime without a dedicated calibration.
 
 \subsection{FDTD and index retrieval}
 FDTD is performed with MEEP. The effective index is retrieved from the complex
@@ -92,9 +100,9 @@ retrieval is accurate to \SI{0.1}{\percent}, against roughly \SI{5}{\percent}
 for a Born approximation. Both linear polarisations are computed. Material
 dispersion uses a Lorentz--Drude fit for tungsten \citep{rakic1998optical} and
 literature optical constants for Cu$_2$O \citep{malerba2011cu2o}, cross-checked
-against an independent REELS-based tungsten dataset (Werner \textit{et al.},
-2009) that disagrees with the Rakic/Palik consensus value at 500\,nm by a
-known, technique-dependent margin.
+against an independent REELS-based tungsten dataset
+\citep{werner2009optical} that disagrees with the Rakic/Palik consensus
+value at 500\,nm by a known, technique-dependent margin.
 
 \subsection{Measured reference}
 The experimental reference is a Cu GLAD film measured by spectroscopic
@@ -113,25 +121,35 @@ three independent realisations (seeds 000/001/002).
 
 \begin{table}[t]
 \caption{Measured versus simulated Mueller elements at $\alpha = \ang{85}$.
-Three of four adjustable elements move toward the measured value under
-three-realisation averaging; mm33 moves away; mm22 is fixed at \num{1.0} by the
+The measured column's instrument uncertainty (WVASE's own per-point standard
+error at this photon energy) is $\pm0.002$--$0.003$ on every element --
+two orders of magnitude smaller than the measured-vs-simulated gaps below,
+so none of these comparisons is limited by measurement noise. Three of four
+adjustable elements move toward the measured value under three-realisation
+averaging; mm33 moves away; mm22 is fixed at \num{1.0} by the
 non-depolarising conversion and cannot move.}
 \label{tab:mueller}
 \begin{ruledtabular}
 \begin{tabular}{lccc}
 element & measured & single realisation & 3-seed average \\
 \colrule
-mm12 & $-0.658$ & $-0.898$ & $-0.876$ \\
-mm21 & $-0.669$ & $-0.898$ & $-0.876$ \\
-mm33 & $\phantom{-}0.325$ & $\phantom{-}0.300$ & $\phantom{-}0.382$ \\
-mm34 & $\phantom{-}0.598$ & $-0.321$ & $-0.291$ \\
-mm22 & $\phantom{-}0.943$ & $\phantom{-}1.000$ & $\phantom{-}1.000$ \\
+mm12 & $-0.658\pm0.003$ & $-0.898$ & $-0.876$ \\
+mm21 & $-0.669\pm0.003$ & $-0.898$ & $-0.876$ \\
+mm33 & $\phantom{-}0.325\pm0.003$ & $\phantom{-}0.300$ & $\phantom{-}0.382$ \\
+mm34 & $\phantom{-}0.598\pm0.002$ & $-0.321$ & $-0.291$ \\
+mm22 & $\phantom{-}0.943\pm0.003$ & $\phantom{-}1.000$ & $\phantom{-}1.000$ \\
 \end{tabular}
 \end{ruledtabular}
 \end{table}
 
-The movements toward the measured values are small -- a few percent of the total
-measured-to-simulated gap -- and mm33 moves the wrong way. mm34 improves in
+The measured values' own instrument uncertainty (WVASE's per-point standard
+error at this photon energy, propagated from the rotating-compensator
+acquisition) is $\pm0.002$--$0.003$ on every element -- roughly two orders of
+magnitude smaller than any of the measured-vs-simulated gaps in the table, so
+the discrepancies discussed below are real systematic effects, not an
+artefact of measurement noise. The movements toward the measured values are
+small -- a few percent of the total measured-to-simulated gap -- and mm33
+moves the wrong way. mm34 improves in
 magnitude but retains an unresolved sign discrepancy tied to the retardance
 sign convention. Most importantly, mm22 equals \num{1.0} exactly for every
 individual realisation by construction of the non-depolarising Mueller

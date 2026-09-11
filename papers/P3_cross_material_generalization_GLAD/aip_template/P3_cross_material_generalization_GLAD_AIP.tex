@@ -371,7 +371,9 @@ Statistical significance of a model's \lomo{} RMSE improvement over
 its baseline is assessed with a material-level permutation test
 \citep{ojala2010permutation}: the
 material-block labels attached to each row (not individual rows) are
-shuffled $n_{\mathrm{perm}}=100$ times, the same \lomo{} model-fitting
+shuffled $n_{\mathrm{perm}}=100$ times (fixed RNG seed $20260815$
+throughout this paper's LOMO/permutation pipeline, for exact
+reproducibility), the same \lomo{} model-fitting
 and RMSE-improvement calculation is repeated on each shuffled
 assignment, and $p$ is the fraction of shuffles whose RMSE improvement
 equals or exceeds the improvement observed on the real, unshuffled
