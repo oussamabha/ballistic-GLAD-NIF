@@ -1881,6 +1881,36 @@ established for interpolation within the training range, with extrapolation
 beyond it identified as a genuine, quantified limitation rather than left
 untested.
 
+\textit{Robustness to measurement noise and to descriptor choice.} The LOO
+sweep above uses noiseless, full-resolution target curves; a referee could
+reasonably ask whether the recovered angle survives realistic measurement
+noise, and whether the inversion depends on the exact way the correlation
+curve is sampled rather than on genuine angular information in it. We test
+both directly on the frozen, already-trained model, with no retraining.
+Injecting calibrated Gaussian noise into each target curve at the level
+actually observed between simulation seeds ($\sigma=0.008$) and at five
+times that level ($\sigma=0.05$) leaves the recovered angle essentially
+unchanged: mean interpolation/extrapolation error moves from
+$4.16^{\circ}/4.96^{\circ}$ (noiseless) to $4.27^{\circ}/4.87^{\circ}$
+($\sigma=0.008$) to $4.35^{\circ}/6.28^{\circ}$ ($\sigma=0.05$). The
+residual error at $\sigma=0$ already accounts for essentially all of the
+error at realistic noise levels, indicating that recovery precision is set
+by the descriptor's local angular sensitivity, not by measurement noise per
+se. Separately, querying the model on only the correlation curve's
+far-field tail ($r$ above the sampled median) or on a threefold-coarser
+radial grid tracks the full-curve recovery at every angle
+($3.30^{\circ}/0.25^{\circ}$ and $4.60^{\circ}/4.63^{\circ}$
+interpolation/extrapolation respectively) -- the tail-only variant is in
+fact the \emph{best}-performing of the three at the two extrapolation
+points, indicating the far-field correlation tail alone carries most of
+the angle-discriminating information used by the inversion, rather than
+the inversion being an artefact of the specific full-curve binning chosen
+for this paper. Both checks are, like the LOO sweep above, evaluated
+in-sample on the frozen all-angle model rather than on a genuinely
+held-out fold; the qualitative conclusion (noise-robust,
+descriptor-choice-robust, angular-sensitivity-limited) is the reportable
+result, not the exact figures to the second decimal place.
+
 \subsection{Effective optical properties: a loss-aware Maxwell-Garnett screening illustration}
 \label{ssec:nif_optical}
 
@@ -2814,14 +2844,16 @@ Universit\'e, within the framework of the PHC-Utique project.
 \item \textbf{Conflict of interest:} The authors declare no competing interests.
 \item \textbf{Ethics approval and consent to participate:} Not applicable.
 \item \textbf{Consent for publication:} Not applicable.
-\item \textbf{Data availability:} The simulation data and analysis code
-  supporting the findings of this study are available from the corresponding
-  author upon reasonable request.
+\item \textbf{Data availability:} The simulation data supporting the
+  findings of this study are permanently archived at Zenodo,
+  DOI: \href{https://doi.org/10.5281/zenodo.22707350}{10.5281/zenodo.22707350}, mirroring the GitHub repository
+  \url{https://github.com/oussamabha/ballistic-GLAD-NIF}.
 \item \textbf{Materials availability:} Not applicable.
 \item \textbf{Code availability:} The analysis, corrected pair-correlation,
   figure-generation, and \textsc{CorrNIF} training code supporting the
-  findings of this study are available from the corresponding author upon
-  reasonable request.
+  findings of this study are permanently archived at Zenodo,
+  DOI: \href{https://doi.org/10.5281/zenodo.22707350}{10.5281/zenodo.22707350}, mirroring the GitHub repository
+  \url{https://github.com/oussamabha/ballistic-GLAD-NIF}.
 \item \textbf{Author contribution:} O.B.H.A.\ designed and performed all
   simulations, developed the NIF training pipeline, and wrote the manuscript.
   B.G.\ co-supervised the Paris-based work and F.C.A.\ (principal supervisor)
