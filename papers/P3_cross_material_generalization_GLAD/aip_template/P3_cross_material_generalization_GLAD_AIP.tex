@@ -633,6 +633,33 @@ reporting only two discrete angles, too sparse to contribute \lomo{}
 rows). Table~\ref{tab:corpus_growth} reports the resulting best
 figures at $n=132$ rows/27 materials.
 
+A separate, more targeted test isolates \emph{which} physical predictor is
+doing the residual work rather than adding radius and $T/T_{\mathrm{melt}}$
+together to a multi-feature model. A one-parameter constrained form,
+$\beta_{\mathrm{pred}}(\alpha) = \beta_{\mathrm{tangent}}(\alpha) +
+c\,X(\mathrm{material})\,g(\alpha)$, was fit separately for each of four
+candidate predictors $X$ under the identical \lomo{} + material-identity
+permutation protocol, restricted to the elemental-metal subset
+($n=9$) to isolate a single chemical class. Homologous temperature
+$T_s/T_m$ -- the predictor motivated by a residual room-temperature-mobility
+hypothesis -- clears the RMSE bar (+25.3\%) but its permutation $p=0.71$
+(and a companion T$_m$-shuffle test on the full corpus gives $p=0.89$),
+i.e.\ it does no real material-identity work despite improving RMSE. The
+covalent atomic radius, by contrast, is the only one of the four predictors
+that approaches significance (+36.7\% RMSE, $p=0.205$), an order of
+magnitude closer to the pre-registered $p<0.05$ bar than any thermal or
+kinetic predictor tested (mass scaling $p=0.90$, cohesive-energy scaling
+$p=0.84$). This converges with an independent, disjoint line of evidence: a
+controlled ballistic simulation across 14 elemental metals (companion
+paper) finds the deposition-angle-independent tangent-rule offset
+correlates with covalent radius at $r=0.57$ ($p=0.032$, $n=14$), while the
+same simulation's test for a $T_s/T_m$ dependence fails
+($|r|=0.41$, $p=0.16$). Two independent methods -- a literature
+meta-analysis and a from-scratch controlled simulation -- agree that
+material identity in GLAD morphology enters through the atomic length
+scale, not through a thermal-mobility channel, even though neither method
+alone clears full statistical significance.
+
 \begin{table}[htbp]
   \centering
   \caption{Corpus-growth campaign result, all four observables, at
@@ -1244,8 +1271,9 @@ the same exploratory search.
 % ============================================================
 \section*{Data and Code Availability}
 All feature tables, model-comparison scripts, and pre-registration
-documents referenced in this paper are maintained in the project
-repository (\texttt{02\_PINN\_NIF/P3\_ML/}); the corpus is drawn from
+documents referenced in this paper are permanently archived at Zenodo,
+DOI: \href{https://doi.org/10.5281/zenodo.22707350}{10.5281/zenodo.22707350}, mirroring the GitHub repository
+\url{https://github.com/oussamabha/ballistic-GLAD-NIF}; the corpus is drawn from
 peer-reviewed literature and PhD theses, cited where individual source
 papers contributed the majority of a material's data
 (Section~\ref{sec:intro}), with the full per-row provenance recorded
