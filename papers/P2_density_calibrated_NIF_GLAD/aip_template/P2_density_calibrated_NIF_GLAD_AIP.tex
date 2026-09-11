@@ -24,6 +24,7 @@
 \usepackage{siunitx}
 \usepackage{xcolor}
 \usepackage{nicefrac}
+\usepackage{orcidlink} % 2026-09-09: corresponding-author ORCID
 
 \graphicspath{{../figures/publication/}}
 
@@ -45,7 +46,7 @@
 % [2026-09-09 -- same fix as P1: Martin removed (no contribution), author order set
 %  to student / co-supervisor (Paris) / principal supervisor last (not a cotutelle).
 %  See P1_ballistic_GLAD_scope_limits_AIP.tex for the full rationale.]
-\author{Oussama Ben Haj Ali}
+\author{Oussama Ben Haj Ali\orcidlink{0009-0001-5823-7655}}
 \email{oussama.benhadjali@fst.utm.tn}
 \affiliation{Laboratoire de Photovolta\"{i}que et Mat\'{e}riaux
   Semi-conducteurs (LPMS), \'{E}cole Nationale d'Ing\'{e}nieurs de Tunis (ENIT),
@@ -92,7 +93,7 @@
 % different, older 7-angle dataset restricted to
 % $\ang \in \{75, 77.5, 80, 82.5, 85, 86, 87\}^{\circ}$ reconstructs the
 % full 3D voxel density field with a mean spatial Pearson
-% $r = 0.984$ between predicted and ground-truth fields, averaged
+% $r = 0.984$ between predicted and reference fields, averaged
 % across these seven angles; this shows the architecture family can
 % reconstruct the depth/lateral density profile within this trained
 % angular window, and does not establish generalisation to
@@ -167,90 +168,33 @@
 % negative finding.
 
 \begin{abstract}
-A neural implicit field (\nif{}) is a compact machine-learning model that
-takes a small set of numbers as input -- here, the deposition angle $\ang$
-and a point's spatial coordinates $(x,y,z)$ -- and outputs a prediction,
-offering a potentially much faster alternative to a full physics simulation
-for predicting film structure in ballistic helical glancing-angle
-deposition (GLAD). We report three successive attempts to build such a
-model, each diagnosing why the previous one fell short. First, a variant
-conditioned on a reference simulation via feature-wise linear modulation
-(\film{}) successfully reconstructs the full 3D density field, with mean
-spatial Pearson correlation $r=0.984$ -- but only for deposition angles
-within the $75$--$87^{\circ}$ range it was trained on, not beyond it. This
-figure is also in-sample: evaluated at three angles inside that same
-range but withheld from training ($78.75^{\circ}$, $83.5^{\circ}$,
-$84.25^{\circ}$), the identical checkpoint collapses to $r \approx 0.003$
-mean, showing the network reproduces the seven trained density fields
-individually rather than learning a function that interpolates smoothly
-between them, despite an explicit angle-smoothness regulariser applied
-during training. An independent replication of the identical recipe on a
-disjoint dataset spanning the full $60$--$89^{\circ}$ deposition-angle
-range (7 trained / 2 held-out angles) confirms this is not an artefact of
-the narrow trained window: in-sample correlation reaches $r=0.954$ but
-collapses to $r=0.088$ at the two held-out angles. Two follow-up tests
-narrow down the cause: replacing the \film{} conditioning mechanism
-with direct Fourier-encoded concatenation of $\ang$, keeping the same
-full-field target, does not help ($r=0.101$ held-out, statistically
-indistinguishable from \film{}'s $r=0.088$), while keeping \film{} but
-reformulating the \emph{target} as a compact pair-correlation
-descriptor $h_g(r;\ang)$ -- the same descriptor family already
-validated for P1 -- generalises well on this same wide angular range
-(mean $R^2=0.962$, Pearson $r=0.997$ across two held-out angles),
-though not clearly better than simple interpolation on the same
-points. Together these indicate the failure lives in the
-high-dimensional field target, not the conditioning architecture. The
-same reframing does not help uniformly: a scalar porosity($\ang$)
-target is better served by classical linear interpolation than by any
-network at this data volume, and a depth-density-profile descriptor's
-generalisation is angle-dependent: after fixing a random-seed
-confound in the shared training code (which had been swinging the
-headline result between clearly negative and clearly positive across
-reruns) and averaging over ten properly-seeded repeats, the profile's
-\emph{shape} is reliably recovered ($r=0.766\pm0.041$) but its
-absolute level only generalises well inside the training range
-($R^2=0.457\pm0.236$ at $72^{\circ}$) and fails near its edge
-($R^2=-0.419\pm0.385$ at $87^{\circ}$).
-Second, when instead trained to predict binary voxel occupancy (whether a
-given point is solid or empty) using softened training labels, the same
-architecture collapses to the trivial prediction (always guessing the same
-value) at every angle, with essentially no improvement over that trivial
-baseline ($\Delta\iou<0.003$). An independently reproduced diagnostic test
--- an $(\alpha,z)$-oracle check -- isolates the cause precisely: this is a
-failure of how the training labels were constructed, not a limitation of
-the model architecture or a lack of depth information in the input --
-$90$--$98\%$ of the softened labels fall in an ambiguous middle range
-$(0.1,0.9)$, which removes the sharp boundary signal the model needs to
-learn from. Switching to sharp (hard binary) labels restores genuine
-spatial learning, but only for the most sparsely-packed film in the dataset
-($\ang=89^{\circ}$, improvement $\Delta\iou=+0.029$); denser films remain
-unlearnable. We then tested three further fixes -- a higher-resolution
-multi-resolution hash-grid input encoding, predicting a continuous density
-instead of binary occupancy, and conditioning the model on a partial
-(incomplete) realization of the film (damped and fully unclamped \film{}
-variants) -- and none produced meaningful spatial learning at the angles
-where multiple independent simulation runs were available for testing. For
-the partial-realization approach specifically, we checked directly whether
-the problem was simply too few independent runs to learn from (three per
-angle): enlarging one angle's dataset to eight independent runs and
-retraining did not help -- a statistical permutation test still shows no
-learned signal for either \film{} variant tested ($p=0.35$ and $p=0.53$,
-across $56$ pairs of runs compared), ruling out limited data as the
-explanation. This diagnosis is further corroborated by four additional,
-architecture-independent checks -- a classical stochastic-reconstruction
-baseline, an independently-computed global-connectivity descriptor, a
-spatially-aware convolutional network, and a resolution-preserving
-local-conditioning variant -- which all converge on the same conclusion:
-the missing information is not resident in any low-order structural
-descriptor of these films, for any method tested. The result is both a
-verified, step-by-step diagnostic
-framework for this class of failure in GLAD voxel-occupancy prediction, and
-a tested, strengthened negative conclusion: none of the remedies explored
-here, including simply providing more training data, resolves the
-underlying non-identifiability -- multiple film realizations grown under
-identical conditions are genuinely indistinguishable from coordinates and
-angle alone, which is exactly the signal a spatial coordinate-based model
-would need in order to learn a meaningful occupancy boundary.
+A neural implicit field (\nif{}) takes a few numbers as input -- here the
+deposition angle $\ang$ and a point's spatial coordinates $(x,y,z)$ -- and
+returns a structural prediction, offering a fast alternative to a ballistic
+simulation of film structure in helical glancing-angle deposition (GLAD). We
+report three experiments that build such a surrogate for Cu helical GLAD films
+and progressively diagnose why it falls short. A \film{}-conditioned \nif{}
+reconstructs the full 3D density field at its seven trained angles (mean spatial
+Pearson $r = 0.984$) but does not interpolate: at three angles withheld from
+training inside the same $75$--$87^{\circ}$ window, $r$ collapses to
+$\approx 0.003$, and an independent replication on a disjoint
+$60$--$89^{\circ}$ dataset gives $r = 0.954$ in-sample and $r = 0.088$
+held-out. Replacing \film{} conditioning with Fourier-encoded concatenation of
+$\ang$ does not help ($r = 0.101$ held-out); reformulating the target as a
+compact pair-correlation descriptor $h_g(r;\ang)$ does generalise
+(mean $R^2 = 0.962$) but not beyond linear interpolation on the same points.
+Trained instead for binary voxel occupancy with softened labels, the network
+collapses to the trivial predictor at every angle ($\Delta\iou < 0.003$); an
+$(\alpha,z)$-oracle diagnostic attributes this to label construction --
+$90$--$98\%$ of soft labels fall in the ambiguous range $(0.1,0.9)$. Hard
+labels restore spatial learning only for the sparsest film
+($\ang = 89^{\circ}$, $\Delta\iou = +0.029$). Adding realisations (to $n=8$ at
+one angle), a multi-resolution hash-grid encoder, focal loss, and
+partial-realisation conditioning each fail, and four architecture-independent
+checks converge: multiple film realisations grown under identical conditions
+are indistinguishable from coordinates and angle alone. The paper contributes
+a reusable diagnostic framework and a tested negative result for
+voxel-occupancy surrogates of stochastic GLAD morphology.
 \end{abstract}
 
 \maketitle
@@ -384,15 +328,27 @@ data it is trained on, so before describing any network we first
 describe how the ballistic simulator's raw output (a cloud of
 deposited bead positions) is turned into the regular 3D grid of
 occupancy values the network actually learns from.
-Simulations are performed with GLAD~v3.2 (bead-sphere ballistic,
-no surface diffusion) on a $100 \times 100\,\mathrm{nm}$ periodic
-substrate, producing 12 configurations.
+Simulations are performed with a custom bead-sphere ballistic GLAD code
+(no surface diffusion; the same simulator characterised in detail in the
+companion paper \citep{companionP1}) on a $100 \times 100\,\mathrm{nm}$
+periodic substrate, producing 12 configurations.
 Atom positions are binned onto a
 $50 \times 50 \times 151$ voxel grid ($\SI{2}{nm}$ isotropic
 resolution) and normalised by the maximum bin count,
 yielding a density field $\rho_{\rm vox}(\mathbf{r}) \in [0,1]$.
 This max-normalised bead-count histogram encodes the local
 occupation density relative to the densest voxel in the film.
+
+Throughout the paper, a candidate architecture or fix is judged to have
+resolved the voxel-occupancy problem only if it raises per-angle intersection
+over union above the trivial-predictor baseline by $\Delta\iou \gtrsim 0.02$
+at two or more of the seven trained angles, with a material-level (per-seed or
+per-realization) permutation test at $p<0.05$ where multiple realizations are
+available. This criterion, and the pre-registered train/held-out angle splits
+used for each experiment, were fixed before the corresponding runs. The
+sequence of fixes in Section~\ref{sec:results} and Section~\ref{sec:discussion}
+is otherwise exploratory diagnosis: each fix was chosen in light of why the
+previous one failed, and every attempt is reported.
 Density and occupancy, rather than column-fanning or pitch descriptors,
 are used as the surrogate targets throughout this paper because a
 dedicated single-condition ablation ($\alpha=85^{\circ}$, seed~0,
@@ -512,7 +468,7 @@ field $\rho_{\rm vox}(x,y,z)$ for each training angle (not a
 1D scalar-per-angle regression target).
 Loss: mean-squared error over voxels.
 Metric: for each of the 7 training angles, the spatial Pearson
-correlation between the predicted and ground-truth full 3D density
+correlation between the predicted and reference full 3D density
 field is computed, and the reported $r$ is the mean of these 7
 per-angle spatial correlations — a measure of how well the model
 reconstructs the depth/lateral density profile at each trained
@@ -563,7 +519,7 @@ as the soft BCE target.
 A mass-conservation penalty $\lambda_{\rm mass} = 10.0$, in the spirit of
 the physics-informed residual penalties of \citet{raissi2019pinn}, is
 added to align predicted mean occupancy per $\ang$ with the measured
-ground-truth occupied fractions.
+reference occupied fractions.
 Loss: $\mathcal{L} = \mathrm{BCE} + \lambda_{\rm mass}\,\mathcal{L}_{\rm mass}$.
 Best-model criterion: validation IoU at threshold 0.5.
 Training is warm-started from a separate 200-epoch BCE-only
@@ -627,7 +583,7 @@ binary boundary signal in the soft labels.
 This subsection addresses Objective~1 (scalar/continuous-field
 porosity surrogate; Section~\ref{sec:intro}).
 \nif{}~v5 achieves a mean spatial Pearson $r = 0.984$ between
-predicted and ground-truth full 3D density fields, averaged over
+predicted and reference full 3D density fields, averaged over
 the 7 trained angles $\ang \in \{75, 77.5, 80, 82.5, 85, 86, 87\}^{\circ}$
 (Section~\ref{ssec:exp1}), confirming that this \film{}-conditioned
 variant successfully reconstructs the depth/lateral density
@@ -650,7 +606,7 @@ relative density error stays below $1.3\%$ at every angle.
     reaches $r \geq 0.98$.
     Per-angle full-field reconstruction quality for \nif{}~v5
     (best checkpoint, epoch 1000). $r$: spatial Pearson correlation
-    between predicted and ground-truth 3D density fields.
+    between predicted and reference 3D density fields.
     Mean error: mean absolute relative density error (\%).
   }
   \label{tab:nifv5_peralpha}
@@ -673,7 +629,7 @@ relative density error stays below $1.3\%$ at every angle.
 
 Figure~\ref{fig:nifv5_slice} makes this agreement directly visible rather
 than only numerical: a vertical slice through the predicted and
-ground-truth fields at $\ang=80^{\circ}$ shows the same fine tilted-column
+reference fields at $\ang=80^{\circ}$ shows the same fine tilted-column
 texture reproduced by the network, with a residual that is visually flat
 noise rather than a structured bias.
 
@@ -700,7 +656,7 @@ correlation collapses from $r=0.984$ in-sample to $r=0.003$ at the
 three held-out angles -- consistent with zero correlation at every
 individual angle (all three individual $|r| < 0.007$), i.e.\ no usable
 spatial correlation at all -- even though the network's predicted mean
-density stays close to the ground-truth mean density at each angle
+density stays close to the reference mean density at each angle
 (relative error $0.5$--$3.6\%$). This combination is diagnostic: the
 network gets the bulk (zeroth-moment) density right but has no access
 to the correct spatial (pointwise) structure at an untrained angle,
@@ -719,7 +675,7 @@ with no retraining or checkpoint selection after the fact.
     retraining). The 3 angles were simulated but withheld from
     training; each lies strictly inside the trained
     $[75^{\circ},87^{\circ}]$ window. $r$: spatial Pearson correlation
-    between predicted and ground-truth 3D density fields. Mean error:
+    between predicted and reference 3D density fields. Mean error:
     mean absolute relative density error (\%).
   }
   \label{tab:nifv5_heldout}
@@ -742,12 +698,12 @@ with no retraining or checkpoint selection after the fact.
   \caption{%
     The high Pearson correlation in Table~\ref{tab:nifv5_peralpha} is not
     a coincidence of a coarse aggregate statistic: the network reproduces
-    the fine, tilted-column texture of the ground-truth field directly,
+    the fine, tilted-column texture of the reference field directly,
     and the residual is visually featureless.
     Vertical ($xz$) slice through the trained NIF~v5 field at
     $\ang=80^{\circ}$ (a training angle), generated by a single forward
     pass through the saved checkpoint (no retraining).
-    (a) Ground-truth density field.
+    (a) Reference density field.
     (b) NIF~v5 prediction.
     (c) Pointwise difference (predicted $-$ truth); $r=0.985$ for this
     slice, consistent with Table~\ref{tab:nifv5_peralpha}.
@@ -817,7 +773,7 @@ selection after the fact.
     (best checkpoint, epoch 60, no retraining), on the independent
     box150\,nm/height300\,nm/pitch150\,nm helical dataset. The 2 angles
     were simulated but withheld from training. $r$: spatial Pearson
-    correlation between predicted and ground-truth 3D density fields.
+    correlation between predicted and reference 3D density fields.
     Mean error: mean absolute relative density error (\%).
   }
   \label{tab:widerange_heldout}
@@ -909,8 +865,9 @@ single 1D coordinate, computed from the identical box150\,nm/
 height300\,nm dataset and train/held-out split used in
 Section~\ref{sssec:res1_widerange}: (i) $h_g(r;\ang)$, the
 corotating-frame pair-correlation function -- the same descriptor and
-extraction pipeline P1's own \textsc{CorrNIF} network already uses
-successfully on a narrower angular window; (ii) $\rho_z(z;\ang)$, the
+extraction pipeline used by \textsc{CorrNIF} (a compact parametric emulator
+of the normalised pair correlation function) in the companion paper, where it
+generalises successfully on a narrower angular window; (ii) $\rho_z(z;\ang)$, the
 mean-density depth profile; and (iii) scalar porosity$(\ang)$. All
 three are $\geq 1000\times$ more compact than the raw voxel field
 ($25$, $152$, and $1$ dimensions respectively, versus $\sim 380{,}000$
@@ -1070,7 +1027,7 @@ threshold $= \bar{y}_\alpha$):
     everywhere ($\Delta\iou < 0.003$ throughout) -- it carries no
     usable spatial information.
     Per-$\alpha$ best-threshold IoU comparison (soft-label model).
-    $\bar{y}_\alpha$: ground-truth occupied fraction.
+    $\bar{y}_\alpha$: reference occupied fraction.
     $\iou_{\rm trivial}$: trivial-predictor IoU at optimal threshold.
     $\iou_{\rm model}$: soft-label model at optimal per-$\alpha$ threshold.
     $\Delta$: improvement over trivial.
@@ -1744,7 +1701,7 @@ any method tested.
     $S_2$ error closure: $1 - (\text{final squared } S_2 \text{ error} /
     \text{initial random-field squared } S_2 \text{ error})$, i.e.\ how much
     of the gap to a perfect two-point-correlation match was closed by the
-    swap-based search. IoU computed against ground truth on the same
+    swap-based search. IoU computed against the reference field on the same
     sampled slices. $\ang=60^{\circ}$ is near-empty
     ($\phi\!\approx\!0.002$) and included only for completeness.
   }
@@ -1813,7 +1770,7 @@ structure -- rather than richer coordinate encoding, a different loss, or
 partial-realization conditioning with an MLP head -- change the outcome? A
 small 3D U-Net (3 levels, 16/32/64 channels) was built to take the
 coordinate-conditioned inputs used throughout this paper (voxel height and
-$\ang$, broadcast constant over $x,y$ within each height, so that no ground-truth
+$\ang$, broadcast constant over $x,y$ within each height, so that no reference
 occupancy is ever fed to the model) and predict full-volume occupancy patches.
 Before any training-set evaluation, this architecture must pass a standard
 sanity gate: it should be able to drive the loss to $\approx 0$ by memorizing
@@ -1919,12 +1876,17 @@ project documents.
     second, pitch-sensitive observable to break the degeneracy.
   \item \textit{Ballistic model only.} The density fields are from
     a diffusion-free bead simulator; real Cu GLAD films at
-    $\ang > 80^{\circ}$ may have structural differences.
+    $\ang > 80^{\circ}$ may have structural differences. Cu-specific
+    cross-sectional SEM or spectroscopic ellipsometry at these angles would
+    quantify the discrepancy and, if needed, provide a mobility-calibration
+    anchor for the simulator.
   \item \textit{Multi-seed label collision at $\ang = 80^{\circ}$, $85^{\circ}$.}
     Discussed in Section~\ref{ssec:disc_multiseed}.
   \item \textit{Hard-label threshold.} The 0.5 threshold for
     binarisation is physically motivated (majority occupation) but
-    arbitrary; sensitivity to threshold choice is not studied here.
+    arbitrary; a threshold sweep over $0.3$--$0.7$ with the occupancy
+    training repeated at each value would bound the sensitivity of the
+    hard-label results to this choice.
   \item \textit{Occupied-fraction values are $z$-range-dependent and
     not directly comparable across this project's own documents.}
     Table~\ref{tab:soft_iou}'s $\bar{y}_\alpha$ column uses the full
@@ -1957,216 +1919,87 @@ The present paper's demonstration that compact descriptors (pair-correlation, de
 \section{Conclusion}
 \label{sec:conclusion}
 
-We have investigated the use of a \film{}-conditioned neural implicit
-field for scalar porosity and binary voxel occupancy prediction in
-ballistic helical GLAD simulations, with the aim of providing an
-experimentalist with a fast surrogate for process-window screening.
-We close each of the three objectives stated in
-Section~\ref{sec:intro}, in the same order.
+We set out to build a \film{}-conditioned neural implicit field as a fast
+surrogate for the angle-dependent porosity and voxel occupancy of ballistic
+helical Cu GLAD films, and we answer the three objectives of
+Section~\ref{sec:intro} in turn. For \emph{scalar density}, the architecture
+reconstructs the full 3D field at trained angles (mean spatial Pearson
+$r = 0.984$ over seven angles), but this reflects per-angle recall rather than
+an angle-continuous learned field: held-out angles inside the trained window
+collapse to $r = 0.003$, and an independent wide-range replication collapses
+from $r = 0.954$ in-sample to $r = 0.088$ held-out. The failure is localised to
+the high-dimensional field target, not the conditioning mechanism -- replacing
+\film{} with Fourier concatenation does not help, whereas reformulating the
+target as the compact pair-correlation descriptor $h_g(r;\ang)$ generalises
+(mean $R^2 = 0.962$), though not beyond linear interpolation, and a scalar
+porosity target is better served by interpolation (mean absolute error $0.035$)
+than by any network at this data volume ($0.181$).
+
+For \emph{voxel occupancy}, soft-label binary cross-entropy freezes at the
+trivial predictor at every angle, because $90$--$98\%$ of the soft labels lie in
+the ambiguous interval $(0.1,0.9)$ and carry no boundary gradient; an
+$(\alpha,z)$-oracle diagnostic rules out network capacity and missing depth
+information as alternative explanations. Hard binary labels are a necessary but
+not sufficient remedy: they restore non-trivial learning only for the sparsest
+film ($\ang = 89^{\circ}$, $\Delta\iou = +0.029$), while denser films remain
+unlearnable under seed-isolated splits with focal loss, a multi-resolution
+hash-grid encoder, continuous-density regression, and partial-realisation
+conditioning. Enlarging one multi-seed angle to $n = 8$ realisations and
+retraining does not change the verdict (permutation $p = 0.35$ and $p = 0.53$
+over $56$ cross-realisation pairs), which rules out practically achievable data
+scarcity as the cause.
+
+The broader result is a strengthened negative conclusion, corroborated by four
+architecture-independent checks (a classical stochastic-reconstruction
+baseline, an independent global-connectivity descriptor, a spatially-aware
+convolutional network, and a resolution-preserving local-conditioning variant):
+the information needed to place mass voxel-by-voxel is not resident in any
+low-order structural descriptor of these films for any method tested, because
+independent realisations grown under identical conditions are genuinely
+indistinguishable from coordinates and angle alone. Compact ensemble-level
+descriptors remain a viable surrogate target; full-field voxel occupancy of
+stochastic GLAD morphology, at the data volumes accessible here, does not. The
+step-by-step diagnostic framework used to reach this conclusion transfers
+directly to other stochastic-microstructure surrogate problems.
+
+\section*{Declarations}
 
 \begin{itemize}
-  \item \textbf{Objective 1 (scalar porosity surrogate) — answered:
-    full-field density reconstruction within $[75^{\circ},87^{\circ}]$ is
-    positive, but not a wider-domain result.}
-    A separately-configured \nif{}~v5 variant achieves mean spatial
-    Pearson $r = 0.984$ reconstructing the 3D density field at its
-    7 trained angles $\ang \in \{75, 77.5, 80, 82.5, 85, 86, 87\}^{\circ}$.
-    This confirms the architecture family's suitability as a
-    density-level surrogate \emph{within that window}; it does not
-    establish, and this experiment does not test, generalisation to
-    the wider $\{60,\ldots,89\}^{\circ}$ range used in Experiments~2--3,
-    nor is it the same network as the shared architecture used
-    there. A held-out test at three angles inside the trained window
-    but withheld from training ($78.75^{\circ}$, $83.5^{\circ}$,
-    $84.25^{\circ}$; Section~\ref{sssec:res1_heldout}) finds this
-    correlation collapses to $r = 0.003$ mean, showing the $r=0.984$
-    figure reflects per-angle recall rather than a genuinely
-    angle-continuous learned field -- the model does not interpolate
-    even within its own trained window. An independent replication
-    of the same recipe on the full $[60^{\circ},89^{\circ}]$ range
-    (Section~\ref{sssec:res1_widerange}, disjoint dataset, 7 trained /
-    2 held-out angles) confirms this is not specific to the narrow
-    window: in-sample $r = 0.954$ collapses to $r = 0.088$ at the two
-    held-out angles.
-    Two follow-up tests (Section~\ref{sssec:res1_descriptors}) localise
-    this failure to the \emph{target}, not the conditioning
-    architecture. Replacing \film{} with direct Fourier-concatenation
-    of $\ang$, same full-field target and split, does not fix
-    generalisation ($r=0.101$ held-out, vs.\ \film{}'s $r=0.088$ --
-    both effectively zero, not a meaningful difference). Reformulating
-    the target instead, from the raw field to the compact
-    pair-correlation descriptor $h_g(r;\ang)$ already validated by P1,
-    does generalise on this wide range (mean $R^2=0.962$, Pearson
-    $r=0.997$ across two held-out angles) -- though, matching P1's own
-    caveat, not clearly better than naive interpolation at these same
-    points. The same reframing is not a universal fix: scalar
-    porosity($\ang$) is better served by classical linear interpolation
-    (mean abs.\ error $0.035$) than by any network at this data volume
-    (NIF: $0.181$), and the depth-density-profile descriptor
-    $\rho_z(z;\ang)$'s generalisation is angle-dependent, established
-    after fixing the seeding gap and averaging ten properly-seeded
-    reruns: its \emph{shape} is reliably recovered ($r=0.766\pm0.041$,
-    positive in all ten runs) but its absolute level only generalises
-    well inside the training range ($R^2=0.457\pm0.236$ at
-    $72^{\circ}$) and fails near the training range's edge
-    ($R^2=-0.419\pm0.385$ at $87^{\circ}$) -- a genuine partial
-    success, not an unresolved question.
-
-  \item \textbf{Objective 2 (voxel-level occupancy) — answered:
-    soft-label spatial occupancy is negative.}
-    BCE with max-normalised density labels freezes at loss $= 0.541$;
-    all deposition angles remain trivial predictors, i.e.\ the
-    connectivity/percolation-relevant voxel-level information
-    motivating Objective~2 is not recovered by this labelling
-    scheme.
-    The physics-informed mass-conservation penalty corrects the
-    per-$\alpha$ density bias but cannot restore binary spatial
-    discrimination from soft labels: it is a density-calibration
-    tool only, not a fix for the spatial-occupancy problem.
-
-  \item \textbf{Objective 3 (root cause and remedy) — answered:
-    diagnosed root cause; three candidate remedies tested, none
-    sufficient at the current data scale, with the reasons for each
-    failure diagnosed rather than left open.}
-    Root cause: $90$--$98\%$ of soft labels lie in $(0.1,0.9)$,
-    eliminating binary boundary gradients from the BCE gradient;
-    an $(\alpha,z)$-oracle diagnostic rules out architecture
-    capacity and depth-signal absence as alternative explanations.
-    Retraining with hard binary labels ($\{0,1\}$, threshold $0.5$)
-    reduces BCE from $0.669$ to $0.592$ and achieves non-trivial
-    IoU for $\ang = 89^{\circ}$ ($\Delta\iou = +0.029$); $6/7$ other angles
-    remain trivial due to two identified confounds: multi-seed
-    label conflicts at $\ang = 80^{\circ}$ and $85^{\circ}$, and
-    balanced-sampling distortion of the test class distribution.
-    Hard binary labels are therefore a \emph{necessary but not
-    sufficient} condition.
-    A direct follow-up combining seed-isolated splits and focal
-    loss (early-stopped at epoch~291) was subsequently run and did
-    \emph{not} resolve spatial learning: 5/7 angles remained
-    statistically indistinguishable from the trivial predictor
-    ($\Delta\iou < 0.0001$ at $\ang = 65$--$85^{\circ}$), with only modest
-    improvement at $\ang = 87^{\circ}$ ($\Delta\iou = 0.005$) and
-    $\ang = 89^{\circ}$ ($\Delta\iou = 0.058$); the aggregate IoU (0.419)
-    is not representative of per-angle performance.
-    This rules out multi-seed pooling as the dominant confound on
-    its own. Three further remedies were then tested directly
-    (Section~\ref{ssec:disc_tier2}): a multi-resolution hash-grid
-    spatial encoder (higher-capacity local encoding, not a structural
-    inductive bias), continuous-density
-    regression (a loss/target reframing), and partial-realization
-    conditioning (a task reframing, conditioning prediction of a
-    realization's upper region on an encoded latent of that same
-    realization's own near-substrate region). The first two produce
-    no meaningful improvement over the hard-label baseline at any
-    angle. The third fails a 3-seed causal-substitution permutation
-    test at both multi-seed angles, for two mechanistically
-    distinct reasons: at $\ang=80^{\circ}$ the near-substrate observed
-    region is itself $>99.8\%$ saturated regardless of seed, leaving
-    nothing informative to condition on; at $\ang=85^{\circ}$ real
-    seed-distinguishing signal exists in the observed region
-    ($13$--$15\%$ pairwise pixel variation) but the trained encoder's
-    influence on the output remains $\sim10^{-3}$ in magnitude. A
-    direct follow-up retrained the conditioning pathway fully
-    unclamped ($10\times$ larger allowed influence, removing the
-    $10\%$ FiLM damping inherited from the baseline architecture) to
-    test whether the damping itself was responsible: the permutation
-    test still fails at both angles with the same order-of-magnitude
-    same/cross difference, ruling out conditioning-pathway capacity
-    as the bottleneck and narrowing it, provisionally, to the number
-    of realizations sharing each angle (three). This data-scarcity
-    hypothesis was then tested directly: five additional simulations
-    at $\ang=85^{\circ}$ (seeds~3--7) brought that angle to $n=8$
-    realizations, and both Fix C variants were retrained from
-    scratch on the enlarged dataset. \textbf{The permutation test
-    still fails at $n=8$} for both variants (Mann--Whitney $p=0.35$
-    damped, $p=0.53$ unclamped, evaluated over $56$ cross-realization
-    pairs versus $6$ previously), with same- and cross-realization
-    correlation means remaining statistically indistinguishable
-    ($0.127$ vs.\ $0.126$; $0.124$ vs.\ $0.122$) rather than merely
-    falling short of significance. More than doubling the per-angle
-    realizations therefore does \emph{not} resolve Fix C's failure.
-    A higher-capacity local spatial encoding, loss/target reframing, and now a
-    practically-achievable increase in per-angle realizations are
-    all ruled out as sufficient fixes; partial-realization
-    conditioning's failure at $\ang=85^{\circ}$ -- where real seed-specific
-    signal is demonstrably present in the input yet is not exploited
-    by the trained encoder at any tested sample size or
-    FiLM-damping setting -- is reported as a genuine, tested negative
-    result rather than an artefact of insufficient data, pending
-    architectural or objective-function changes not explored here.
+\item \textbf{Funding:} No specific financial support statement is declared
+  for this manuscript because no verified project number, contract number, or
+  funding-agency wording was found in the local project records.
+\item \textbf{Conflict of interest:} The authors declare no competing interests.
+\item \textbf{Ethics approval and consent to participate:} Not applicable.
+\item \textbf{Consent for publication:} Not applicable.
+\item \textbf{Data availability:} The voxel-occupancy training/test arrays,
+  the coarse-graining and information-ceiling analysis outputs, and the
+  trained surrogate checkpoints supporting the findings of this study are
+  available from the corresponding author upon reasonable request.
+\item \textbf{Materials availability:} Not applicable.
+\item \textbf{Code availability:} The voxelisation, surrogate-training
+  (dense CNN and local-conditioning variants), coarse-graining sweep, and
+  information-ceiling analysis code supporting the findings of this study
+  are available from the corresponding author upon reasonable request.
+\item \textbf{Author contribution:} O.B.H.A.\ designed and performed the
+  analysis, wrote the code, and drafted the manuscript. All authors reviewed
+  and approved the final manuscript.
 \end{itemize}
 
-This diagnosis is further strengthened by four architecture-independent
-cross-checks (Section~\ref{ssec:disc_crossval}) that use no
-coordinate-conditioned neural network at all: a classical Yeong--Torquato
-stochastic-reconstruction baseline, operating directly on the two-point
-correlation function of each realization, closes $70$--$96\%$ of the
-initial random-field correlation-matching error yet still recovers only
-$7$--$47\%$ intersection-over-union with the true realization at
-non-degenerate angles; an independently-run 27-configuration topology
-sweep shows the global largest-connected-fraction descriptor is
-seed-invariant to five decimal places up to $\ang=80^{\circ}$ and within
-$1.3$ percentage points at $\ang=89^{\circ}$, a $60$--$100\times$ gap
-relative to the $9$--$15\%$ pixel-level seed disagreement measured
-directly; a coordinate-conditioned convolutional network is shown, by
-construction, to be representationally incapable of producing an
-$x,y$-varying occupancy texture from height/angle-only input; and a
-spatially-resolved, sanity-checked local-conditioning variant of the
-partial-realization encoder -- built specifically to rule out the
-global-average-pooling bottleneck of the original encoder -- still shows
-no learned signal once trained at scale. Five independent methods, on
-five independent analyses of these films, therefore converge on one
-conclusion: seed-to-seed stochasticity in these films is real,
-substantial at the pixel level, and essentially invisible to every
-low-order descriptor tested, regardless of whether that descriptor is
-consumed by a point-wise neural network, a spatially-convolutional one, a
-classical optimizer, or read directly off an independently-computed
-statistic. The negative result is therefore not attributable to the
-specific architectures tried in this paper; it reflects where the
-recoverable information genuinely is (and is not) in this class of
-stochastically-nucleated GLAD film.
+\section*{Declaration on the use of AI tools}
+% DRAFT 2026-09-10 -- authors to confirm the model list and the task scope, and
+% the placement (Methods vs. this back-matter section), before submission.
+% Rationale + policy basis: ../guide of writing articles with AI/WRITING_AND_AI_DISCLOSURE_GUIDE.md sec.8.
+During the preparation of this work the authors used large language models
+(Anthropic Claude; and, for bulk literature summarisation only, additional
+models accessed through free-tier APIs) to assist with drafting and editing
+prose, generating and refactoring analysis and simulation code, structuring
+arguments, and summarising background literature. All AI-assisted text, code,
+numerical results, and references were subsequently reviewed and verified by the
+authors against primary sources or independent computation, and edited as
+needed. The authors take full responsibility for the content of the publication.
+No AI system is listed as an author, in line with COPE, ICMJE, and the relevant
+publisher policies.
 
-These results establish a stepwise label-quality diagnosis
-framework — soft-zone fraction analysis, oracle predictor test,
-and hard-label ablation — applicable to any simulation-based
-\nif{} training pipeline where continuous density fields are the
-natural simulation output but binary voxel structure is the
-prediction target. For an experimentalist, the practical takeaway
-is that a fast scalar-porosity surrogate is already usable within
-its trained angular window, while a voxel-resolved,
-connectivity-aware surrogate is not yet available: spatial inductive
-encoding alone does not supply it (Section~\ref{ssec:disc_tier2}), and
-the most promising remaining direction, partial-realization
-conditioning, requires more per-angle realizations and a stronger
-conditioning pathway than were available in this study before it can
-be properly evaluated.
-
-% ============================================================
-\section*{Author contributions (CRediT)}
-O.B.H.A.: Conceptualization, Methodology, Software, Investigation, Formal analysis,
-Writing -- original draft. B.G.: Supervision (Paris-based work), Writing -- review \&
-editing. F.C.A.: Supervision (principal), Writing -- review \& editing.
-
-% ============================================================
-\section*{Acknowledgements}
-The authors thank their home institutions for their support:
-the Laboratoire de Photovolta\"{i}que et Mat\'{e}riaux
-Semi-conducteurs (LPMS), \'{E}cole Nationale d'Ing\'{e}nieurs de
-Tunis (ENIT), Universit\'{e} de Tunis El Manar (UTM); the Institut
-des NanoSciences de Paris (INSP), CNRS, Sorbonne Universit\'{e};
-and the FEMTO-ST Institute, CNRS, Universit\'{e} de
-Franche-Comt\'{e}.
-
-\section*{Funding}
-No specific financial support statement is declared for this manuscript
-because no verified project number, contract number, or funding-agency
-wording was found in the local project records.
-
-\section*{Data availability}
-Simulation data, voxel files, and training scripts are available
-from the authors upon reasonable request.
-
-% ============================================================
 \bibliographystyle{aipnum4-1}
 \bibliography{P2_references}
 

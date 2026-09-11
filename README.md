@@ -87,6 +87,21 @@ has an `aip_template/` subfolder, but its target venue is not yet finalized — 
 that *Machine Learning: Science and Technology* or *npj Computational Materials* may be a better
 fit than a standard AIP venue, given its negative-result/Bayesian framing.
 
+### P4 — [`papers/P4_atomistic_anchor_kernel_limits/`](papers/P4_atomistic_anchor_kernel_limits/)
+*An Atomistic Calibration Anchor for a Ballistic GLAD Simulator: Cu(100) Adatom Energetics and the
+Limits of a Grid-Local Surface-Diffusion Kernel*
+
+A short methods paper, independent of P1-P3's simulator/NIF pipeline. Computes the Cu(100) adatom
+hop barrier by nudged elastic band on the Mishin et al. (2001) EAM potential (`E_a = 0.5106 eV`,
+agreeing with three literature values to 0.02-0.03 eV), converts it to a room-temperature diffusion
+length before burial (`L_D ~ 20-30 nm`), and shows — via a geometry-kinetics decomposition at two
+height-matched deposition angles — that the ballistic simulator's built-in surface-diffusion
+kernel (grid-local, ~1.5 nm reach) cannot represent transport at the `L_D` scale by any parameter
+choice. Serves both as a calibration anchor and as a specification for a future range-extended
+kernel; deliberately does not claim a calibrated ballistic run (that is out of scope, named
+explicitly as future work). Contains the NEB result JSON and driver script, the manuscript, bib,
+and the two result figures with their generator script.
+
 ---
 
 ## Repository structure

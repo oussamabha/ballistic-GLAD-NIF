@@ -66,6 +66,7 @@
 \usepackage{siunitx}
 \usepackage{xcolor}
 \usepackage{nicefrac}
+\usepackage{orcidlink} % 2026-09-09: corresponding-author ORCID
 
 \renewcommand{\ang}{\ensuremath{\alpha}} % bare-symbol form used throughout,
                                           % as in the companion P1/P2 manuscripts
@@ -83,7 +84,7 @@
 % [2026-09-09 -- same fix as P1: Martin removed (no contribution), author order set
 %  to student / co-supervisor (Paris) / principal supervisor last (not a cotutelle).
 %  See P1_ballistic_GLAD_scope_limits_AIP.tex for the full rationale.]
-\author{Oussama Ben Haj Ali}
+\author{Oussama Ben Haj Ali\orcidlink{0009-0001-5823-7655}}
 \email{oussama.benhadjali@fst.utm.tn}
 \affiliation{Laboratoire de Photovolta\"{i}que et Mat\'{e}riaux
   Semi-conducteurs (LPMS), \'{E}cole Nationale d'Ing\'{e}nieurs de Tunis (ENIT),
@@ -101,58 +102,30 @@
 \date{\today}
 
 \begin{abstract}
-Glancing-angle deposition (GLAD) produces tilted, porous columnar thin
-films whose column-tilt angle $\beta$ and porosity $\phi$ are the two
-morphological quantities most directly linked to a film's optical and
-electrical anisotropy. Existing predictive relations for both
-quantities are either purely geometric (the tangent rule for $\beta$)
-or material-specific empirical fits; no published model uses material
-identity itself -- through physically motivated descriptors such as
-atomic mass, melting point, or bulk density -- to predict how a
-\emph{new} material, never seen during fitting, will behave under
-GLAD. We assembled a literature-derived corpus of experimentally
-measured $\beta(\alpha)$ and porosity($\alpha$) values spanning up to
-40 distinct materials (elemental metals, oxides, fluorides,
-chalcogenides), fitted four candidate models (linear regression,
-Gaussian process regression, gradient-boosted trees, random forest)
-under leave-one-material-out cross-validation (\lomo{}), and
-pre-registered a strict acceptance bar before inspecting any result:
-$\geq 15\%$ \lomo{} RMSE improvement over a physics/naive baseline
-\emph{and} a material-level permutation-test $p<0.05$. Every learned
-model comfortably clears the RMSE bar for $\beta(\alpha)$ (up to
-$+54.4\%$ depending on corpus snapshot) and often for porosity($\alpha$)
-(up to $+28.5\%$), but no configuration -- the pooled fit, three
-pre-registered material-class subgroups, two independent corpus-growth
-interventions targeting the most promising subgroup, a pairwise
-ranking reformulation of the task, or a pre-registered Fisher's-method
-combination across the three disjoint material-class subgroups
-($p=0.715$) -- ever clears the permutation-test bar (best $p=0.09$ for
-$\beta(\alpha)$ at an earlier, smaller corpus snapshot; $p=0.20$--$0.36$
-across every variant tested at the current snapshot). We report this
-as an honest, thoroughly instrumented
-negative result: the barrier is specifically material-level sample
-size, not model choice, feature choice, task formulation, or
-extraction quality, all four of which were tested and ruled out as
-explanations. As a complementary, deliberately different analysis, a
-pre-registered Bayesian hierarchical partial-pooling model fitted to
-the same $\beta(\alpha)$ corpus ($n=250$ rows, $46$ materials, all MCMC
-diagnostics clean) finds that no individual descriptor coefficient's
-94\% highest-density interval excludes zero, while Bayesian $R^2$
-posteriors still place 73--84\% probability on material descriptors
-explaining more than 10\% of between-material variance. This does not
-overturn the frequentist non-significance verdict -- it is consistent
-with it: a
-diffuse, imprecisely-localized effect of the size the
-Bayesian $R^2$ posteriors suggest is exactly
-what a permutation test at $n=14$--$46$ materials is underpowered to
-detect at $p<0.05$. We present this paper as a resource for the
-GLAD/materials-informatics community: a fully pre-registered,
-diagnostically exhaustive account of where the statistical-power
-boundary for this class of cross-material generalization problem
-currently sits, together with the specific corpus-growth target
-(professional literature-database access to 30+ elemental metals,
-particularly platinum-group and rare-earth species) that would most
-directly move it.
+Glancing-angle deposition (GLAD) produces tilted, porous columnar films whose column-tilt $\beta$ and porosity $\phi$ set their optical and electrical anisotropy. Predictive relations for both are either purely geometric (the tangent rule for
+$\beta$) or material-specific fits; none uses material identity -- via
+descriptors such as atomic mass, melting point, bulk density -- to predict a
+material never seen during fitting. We assembled a literature-derived corpus of measured $\beta(\alpha)$
+and porosity($\alpha$) spanning up to $40$ materials (elemental metals, oxides,
+fluorides, chalcogenides), fitted four models under leave-one-material-out cross-validation, and pre-registered a strict acceptance
+bar before inspecting any result: $\geq 15\%$ RMSE improvement over a
+physics/naive baseline \emph{and} a material-level permutation-test $p < 0.05$.
+Every learned model clears the RMSE bar (up to $+54.4\%$ for $\beta$, $+28.5\%$
+for porosity), but no configuration clears the permutation bar -- not the
+pooled fit, three pre-registered material-class subgroups, two targeted
+corpus-growth interventions, a pairwise-ranking reformulation, or a
+Fisher's-method combination ($p = 0.715$); the best permutation $p$ is $0.09$
+at an earlier, smaller corpus snapshot and $0.20$--$0.36$ across every current
+variant. This is a thoroughly instrumented negative result: the binding constraint is
+material-level sample size, not model, feature, task formulation, or extraction
+quality, each tested and ruled out. A complementary pre-registered Bayesian hierarchical model ($n = 250$ rows,
+$46$ materials) finds no descriptor coefficient's $94\%$ highest-density
+interval excludes zero, yet places $73$--$84\%$ posterior probability on
+descriptors explaining more than $10\%$ of between-material variance -- a
+diffuse effect a permutation test at this corpus size is underpowered to
+detect, consistent with the frequentist verdict. The paper maps where the statistical-power boundary for this problem currently
+sits and identifies the corpus-growth target ($30+$ elemental metals,
+especially platinum-group and rare-earth species) that would most directly move it.
 \end{abstract}
 
 \maketitle
@@ -1285,6 +1258,21 @@ formal analysis, investigation, data curation, writing -- original
 draft, writing -- review and editing, visualization. Bruno Gallas,
 Ferid Chaffar Akkari (principal supervisor): resources, supervision, writing
 -- review and editing.
+
+\section*{Declaration on the use of AI tools}
+% DRAFT 2026-09-10 -- authors to confirm the model list and the task scope, and
+% the placement (Methods vs. this back-matter section), before submission.
+% Rationale + policy basis: ../guide of writing articles with AI/WRITING_AND_AI_DISCLOSURE_GUIDE.md sec.8.
+During the preparation of this work the authors used large language models
+(Anthropic Claude; and, for bulk literature summarisation only, additional
+models accessed through free-tier APIs) to assist with drafting and editing
+prose, generating and refactoring analysis and simulation code, structuring
+arguments, and summarising background literature. All AI-assisted text, code,
+numerical results, and references were subsequently reviewed and verified by the
+authors against primary sources or independent computation, and edited as
+needed. The authors take full responsibility for the content of the publication.
+No AI system is listed as an author, in line with COPE, ICMJE, and the relevant
+publisher policies.
 
 \bibliographystyle{aipnum4-1}
 \bibliography{P3_references}

@@ -1,0 +1,220 @@
+% ============================================================
+%  P4 -- An atomistic calibration anchor for a ballistic GLAD
+%        simulator: Cu(100) adatom energetics and the limits of a
+%        grid-local surface-diffusion kernel
+%
+%  Template: AIP Publishing (revtex4-1, aip class option)
+%  Target: short methods paper / Computational Materials Science / JVST-A
+%
+%  FIRST DRAFT 2026-09-10 -- generated from:
+%    01_GLAD_SIMULATION/P4_EAM_MD_FUTURE_WORK/{P4_LAMMPS_VALIDATION_20260909.md,
+%      P4_HOP_BUDGET_CALIBRATION_RESULT_20260909.md, P4_DIFFUSION_LENGTH_CALIBRATION_20260908.md,
+%      P4_D3_LONGRANGE_DIFFUSION_KERNEL_SCOPE_20260908.md}
+%    01_GLAD_SIMULATION/simulation_batch/runs/P1_DIFFUSION_DECOMP_C2_KERNELFIX_20260907/C2_ANALYSIS_20260910.md
+%    05_THESIS_PAPER_ASSETS/P4_EAM_MD_MANUSCRIPT_SKELETON_20260910.md
+%  Numbers not recomputed. SCOPE NOTE: this is the "anchor + kernel-limits" paper
+%  that is viable now; a "calibrated ballistic GLAD run" needs the D3 kernel
+%  redesign first. TODO(author): figures, venue, decide whether to wait for D3.
+% ============================================================
+\documentclass[aip,jcp,amsmath,amssymb,reprint]{revtex4-1}
+\usepackage{graphicx}
+\usepackage{siunitx}
+\usepackage{booktabs}
+
+\begin{document}
+
+\title{An atomistic calibration anchor for a ballistic GLAD simulator:
+Cu(100) adatom energetics and the limits of a grid-local surface-diffusion
+kernel}
+
+\author{Oussama Ben Haj Ali}
+\affiliation{Laboratoire de Photovolta\"{i}que et Mat\'{e}riaux Semi-conducteurs (LPMS),
+\'{E}cole Nationale d'Ing\'{e}nieurs de Tunis (ENIT), Universit\'{e} de Tunis El Manar, Tunisia}
+\author{Bruno Gallas}
+\affiliation{Institut des NanoSciences de Paris (INSP), CNRS, Sorbonne Universit\'{e}, Paris, France}
+\author{Ferid Chaffar Akkari}
+\affiliation{Laboratoire de Photovolta\"{i}que et Mat\'{e}riaux Semi-conducteurs (LPMS),
+\'{E}cole Nationale d'Ing\'{e}nieurs de Tunis (ENIT), Universit\'{e} de Tunis El Manar, Tunisia}
+
+\date{\today}
+
+\begin{abstract}
+Ballistic glancing-angle-deposition (GLAD) simulators neglect surface diffusion;
+knowing when that matters requires a physical length scale. We compute the
+Cu(100) adatom hop barrier by nudged elastic band on an embedded-atom-method
+potential, obtaining $E_a = \SI{0.5106}{eV}$, in agreement with published values
+to \SIrange{0.02}{0.03}{eV}. Combined with the deposition rate this gives a
+room-temperature adatom diffusion length before burial of
+$L_D \approx \SIrange{20}{30}{nm}$ -- comparable to the inter-column spacing at
+high deposition angle. We then show that the ballistic simulator's built-in
+surface-diffusion kernel, a fixed three-by-three grid-cell contact search with a
+spatial reach of about \SI{1.5}{nm}, cannot represent diffusion on the $L_D$
+scale by any parameter choice: a geometry--kinetics decomposition finds the
+kernel produces a bounded, single-parameter correction (film mass and
+connectivity preserved, column tilt unchanged to within \SI{1}{\degree}) but no
+route to the redistribution of mass between columns that $L_D \sim$
+inter-column-spacing implies. The atomistic measurement therefore serves both as
+a calibration anchor and as a specification for a redesigned, range-extended
+diffusion kernel.
+\end{abstract}
+
+\maketitle
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+A purely ballistic GLAD growth model -- straight vapour trajectories, sticking on
+contact, no adatom motion -- reproduces the tilted porous columnar morphology of
+real films at high deposition angle, and its scope limits are well characterised.
+One omission is surface diffusion. Whether neglecting it is acceptable for a
+given quantity depends on how far an adatom moves before it is buried, relative
+to the feature size of interest. That length is not available from the ballistic
+model itself. Here we measure it atomistically for Cu, use it to bound the
+regime in which the ballistic model is complete, and test whether the model's
+own optional diffusion kernel can be calibrated to it.
+
+% ============================================================
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Atomistic hop barrier}
+The Cu(100) adatom hop barrier is computed by the nudged elastic band method on
+the Mishin \textit{et al.}~\cite{mishin2001} embedded-atom-method potential, using a
+standard slab geometry and a single adatom hopping between adjacent fourfold
+hollow sites.
+
+\subsection{Diffusion-length estimate}
+The hop rate is $\nu = \nu_0 \exp(-E_a/k_BT)$ with $k_BT = \SI{25.69}{meV}$ at
+\SI{298}{K}. The burial time is $t_\mathrm{bury} = d_\mathrm{ML}/R_\mathrm{dep}$
+with $d_\mathrm{ML} = \SI{0.209}{nm}$ and $R_\mathrm{dep} = \SI{0.3}{nm/s}$. The
+number of hops before burial is $N = \nu\,t_\mathrm{bury}$ and the
+root-mean-square lateral diffusion length is
+$L_D = a_\mathrm{nn}\sqrt{N}$ with $a_\mathrm{nn} = \SI{0.2556}{nm}$.
+
+\subsection{Kernel probe}
+The ballistic engine's diffusion kernel moves a newly deposited atom to the best
+contact site within a fixed search radius; its contact search is a hardcoded
+three-by-three grid-cell scan with cell size \SI{1}{nm}, giving an effective
+reach of about \SI{1.5}{nm}. Its behaviour was probed by (i) a geometry--kinetics
+decomposition comparing diffusion-on runs at dwell-hop cap 1 to matched
+diffusion-off ballistic references, and (ii) a hop-budget sweep.
+
+% ============================================================
+\section{Results}
+\label{sec:results}
+
+\subsection{The anchor}
+\label{ssec:anchor}
+The computed barrier is $E_a = \SI{0.5106}{eV}$, consistent with
+Boisvert and Lewis~\cite{boisvert1997} (\SI{0.49}{eV}, their own EAM/MD
+Arrhenius fit) and Mehl \textit{et al.}~\cite{mehl1999} model-II
+(\SI{0.487}{eV}) to \SIrange{0.02}{0.03}{eV}; Zhang \textit{et
+al.}~\cite{zhang2011}'s isolated-adatom value (\SI{0.66}{eV}) is the
+outlier. The resulting diffusion length is
+
+\begin{table}[t]
+\caption{Room-temperature Cu adatom diffusion length before burial.}
+\label{tab:LD}
+\begin{ruledtabular}
+\begin{tabular}{ccc}
+$\nu_0$ (Hz) & hops before burial & $L_D$ (rms) \\
+\colrule
+\num{1e12} & \num{1.6e3} & \SI{10}{nm} \\
+\num{5e12} & \num{8.1e3} & \SI{23}{nm} \\
+\num{1e13} & \num{1.6e4} & \SI{33}{nm} \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+with a central estimate $L_D \approx \SIrange{20}{30}{nm}$. This is comparable
+to the inter-column spacing at high deposition angle, i.e.\ room-temperature Cu
+surface diffusion should be able to redistribute mass between columns, not merely
+settle adatoms locally.
+
+\subsection{The kernel cannot reach that scale}
+\label{ssec:kernel}
+The geometry--kinetics decomposition at the one height-matched deposition angle
+(\ang{89}, \SI{300}{nm}) shows the diffusion kernel at dwell-hop cap 1 produces a
+bounded, single-parameter correction: the largest-component fraction goes from
+\num{0.997} to \num{0.956} (both connected, both percolating in both directions),
+atom count rises \SI{14}{\percent} (diffusion fills in, it does not disperse),
+interpenetration does not worsen, and column tilt is unchanged to within
+\SI{1}{\degree}. Lower deposition angles are directionally consistent. Separately,
+a hop-budget sweep finds the kernel is effectively binary: at budget $\le 2$ the
+effect is mild, and above it the film over-densifies catastrophically, with no
+intermediate regime reachable by parameter change. The reason is structural: the
+contact search reaches about \SI{1.5}{nm}, one to two orders of magnitude below
+$L_D$, so no setting lets it represent $L_D$-scale transport.
+
+% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+The atomistic measurement does two things. As a calibration anchor it fixes the
+physical diffusion length the ballistic model should be judged against, and it
+bounds the regime -- low deposition angle, quantities insensitive to
+between-column mass transport -- where the diffusion-free model is complete. As a
+specification it shows the current kernel is the wrong tool for the
+$L_D \sim \SI{20}{30}{nm}$ regime: a redesigned kernel with an expanding-ring
+contact search, whose reach is set by $L_D$ rather than by a fixed grid stencil,
+is required before the anchor can be used inside a calibrated ballistic run.
+
+A separate short-timescale molecular-dynamics deposition test measures mechanical
+settling of a landed atom into the nearest favourable site, on a picosecond
+window; that is a different quantity from thermally activated surface diffusion,
+which needs milliseconds to seconds of real time to accumulate the
+\num{1e3}--\num{1e4} hops behind $L_D$. The two should not be combined into a
+single calibrated mobility parameter.
+
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+A single nudged-elastic-band barrier ($E_a = \SI{0.5106}{eV}$) yields a
+room-temperature Cu adatom diffusion length of \SIrange{20}{30}{nm} that both
+calibrates and bounds a ballistic GLAD simulator, and simultaneously specifies
+why the simulator's grid-local diffusion kernel -- a bounded, non-tunable,
+\SI{1.5}{nm}-reach correction -- must be replaced by a range-extended kernel
+before that anchor can be applied in a growth run.
+
+% ============================================================
+\section*{Declaration on the use of AI tools}
+% DRAFT 2026-09-10 -- authors to confirm model list, task scope, placement before
+% submission. Policy basis: ../guide of writing articles with AI/WRITING_AND_AI_DISCLOSURE_GUIDE.md sec.8.
+During the preparation of this work the authors used large language models
+(Anthropic Claude; and, for bulk literature summarisation only, additional
+models accessed through free-tier APIs) to assist with drafting and editing
+prose, generating and refactoring analysis and simulation code, structuring
+arguments, and summarising background literature. All AI-assisted text, code,
+numerical results, and references were subsequently reviewed and verified by the
+authors against primary sources or independent computation, and edited as
+needed. The authors take full responsibility for the content of the publication.
+No AI system is listed as an author, in line with COPE, ICMJE, and the relevant
+publisher policies.
+
+\section*{Declarations}
+
+\begin{itemize}
+\item \textbf{Funding:} No specific financial support statement is declared
+  for this manuscript because no verified project number, contract number, or
+  funding-agency wording was found in the local project records.
+\item \textbf{Conflict of interest:} The authors declare no competing interests.
+\item \textbf{Ethics approval and consent to participate:} Not applicable.
+\item \textbf{Consent for publication:} Not applicable.
+\item \textbf{Data availability:} The NEB input decks, the diffusion-length
+  calculation, and the kernel-probe run configurations supporting the
+  findings of this study are available from the corresponding author upon
+  reasonable request.
+\item \textbf{Materials availability:} Not applicable.
+\item \textbf{Code availability:} The NEB, diffusion-length, and
+  geometry--kinetics decomposition analysis code supporting the findings of
+  this study are available from the corresponding author upon reasonable
+  request.
+\item \textbf{Author contribution:} O.B.H.A.: Conceptualization, Methodology,
+  Software, Investigation, Formal analysis, Writing -- original draft. B.G.:
+  Supervision, Writing -- review \& editing. F.C.A.: Supervision (principal),
+  Writing -- review \& editing.
+\end{itemize}
+
+\bibliographystyle{aipnum4-1}
+\bibliography{P4_references}
+
+\end{document}

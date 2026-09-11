@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use this code or data, please cite the corresponding paper(s) below."
+title: "Ballistic Helical GLAD: Statistical Morphology, Neural Implicit Fields, and Their Predictive Limits -- Code and Data"
+type: software
+authors:
+  - given-names: Oussama
+    family-names: Ben Haj Ali
+    affiliation: "Laboratoire de Photovoltaique et Materiaux Semi-conducteurs (LPMS), Ecole Nationale d'Ingenieurs de Tunis (ENIT), Universite de Tunis El Manar, Tunisia"
+  - given-names: Bruno
+    family-names: Gallas
+    affiliation: "Institut des NanoSciences de Paris (INSP), CNRS, Sorbonne Universite, Paris, France"
+  - given-names: Ferid
+    family-names: Chaffar Akkari
+    affiliation: "Laboratoire de Photovoltaique et Materiaux Semi-conducteurs (LPMS), Ecole Nationale d'Ingenieurs de Tunis (ENIT), Universite de Tunis El Manar, Tunisia"
+repository-code: "https://github.com/oussamabha/ballistic-GLAD-NIF"
+license: MIT
+keywords:
+  - glancing-angle deposition
+  - GLAD
+  - thin films
+  - neural implicit fields
+  - ballistic simulation
+  - copper
+references:
+  - type: article
+    title: "Invertible Statistical Morphology in Ballistic Helical GLAD: Angle Recovery from a Purely Geometric Model"
+    authors:
+      - given-names: Oussama
+        family-names: Ben Haj Ali
+      - given-names: Bruno
+        family-names: Gallas
+      - given-names: Ferid
+        family-names: Chaffar Akkari
+    status: preprint
+  - type: article
+    title: "Density-Calibrated Neural Implicit Field for Ballistic Helical GLAD"
+    status: preprint
+  - type: article
+    title: "Cross-Material Generalization for GLAD Column-Tilt and Porosity: A Pre-Registered Negative Result and Its Statistical Boundary"
+    status: preprint
+  - type: article
+    title: "An Atomistic Calibration Anchor for a Ballistic GLAD Simulator: Cu(100) Adatom Energetics and the Limits of a Grid-Local Surface-Diffusion Kernel"
+    status: preprint

@@ -93,16 +93,14 @@
   \parbox{0.92\textwidth}{\centering
   Oussama Ben Haj Ali$^{1}$%
   \thanks{Corresponding author: oussama.benhadjali@fst.utm.tn}
-  , Ferid Chaffar Akkari$^{1}$,
-  Bruno Gallas$^{2}$,
-  Nicolas Martin$^{3}$
+  , Bruno Gallas$^{2}$,
+  Ferid Chaffar Akkari$^{1}$
   \\[0.4em]
   \small
   $^{1}$Laboratoire de Photovolta\"{i}que et Mat\'{e}riaux Semi-conducteurs (LPMS),
   \'{E}cole Nationale d'Ing\'{e}nieurs de Tunis (ENIT),
   Universit\'{e} de Tunis El Manar (UTM), Tunisia;
-  $^{2}$Institut des NanoSciences de Paris (INSP), CNRS, Sorbonne Universit\'{e}, Paris, France;
-  $^{3}$FEMTO-ST Institute, CNRS, Universit\'{e} de Franche-Comt\'{e}, Besan\c{c}on, France
+  $^{2}$Institut des NanoSciences de Paris (INSP), CNRS, Sorbonne Universit\'{e}, Paris, France
   }
 }
 
@@ -429,6 +427,18 @@ occupancy values the network actually learns from.
 Simulations are performed with GLAD~v3.2 (bead-sphere ballistic,
 no surface diffusion) on a $100 \times 100\,\mathrm{nm}$ periodic
 substrate, producing 12 configurations.
+
+% [2026-09-10, per O.B.H.A. instruction -- scope-freeze provenance note, same as the
+%  AIP twin; see P2_SCOPE_FREEZE_20260908.md]
+All voxel fields used here were generated with the simulator core as it stood when this
+dataset was archived. A subsequent grid-rebuild correction to that core (documented in
+the companion paper) post-dates this dataset and changes per-angle atom counts by up to a
+few percent, without altering the invariant topology class. Because every result in this
+paper is a statement about \emph{independent realizations of the same growth condition}
+being mutually indistinguishable from coordinates and angle alone -- a property of the
+ensemble, not of the specific core version -- regenerating the dataset on the corrected
+core is not expected to change any conclusion; it is left as future work, and the numbers
+below should be read as pertaining to the archived dataset.
 Atom positions are binned onto a
 $50 \times 50 \times 151$ voxel grid ($\SI{2}{nm}$ isotropic
 resolution) and normalised by the maximum bin count,
@@ -2154,9 +2164,8 @@ be properly evaluated.
 % ============================================================
 \section*{Author contributions (CRediT)}
 O.B.H.A.: Conceptualization, Methodology, Software, Investigation, Formal analysis,
-Writing -- original draft. F.C.A.: Supervision, Writing -- review \& editing.
-B.G.: Supervision, Writing -- review \& editing. N.M.: Supervision, Writing -- review
-\& editing.
+Writing -- original draft. B.G.: Supervision (Paris-based work), Writing -- review \&
+editing. F.C.A.: Supervision (principal), Writing -- review \& editing.
 
 % ============================================================
 \section*{Acknowledgements}
@@ -2178,6 +2187,21 @@ Simulation data, voxel files, and training scripts are available
 from the authors upon reasonable request.
 
 % ============================================================
+\section*{Declaration on the use of AI tools}
+% DRAFT 2026-09-10 -- authors to confirm the model list and the task scope, and
+% the placement (Methods vs. this back-matter section), before submission.
+% Rationale + policy basis: ../guide of writing articles with AI/WRITING_AND_AI_DISCLOSURE_GUIDE.md sec.8.
+During the preparation of this work the authors used large language models
+(Anthropic Claude; and, for bulk literature summarisation only, additional
+models accessed through free-tier APIs) to assist with drafting and editing
+prose, generating and refactoring analysis and simulation code, structuring
+arguments, and summarising background literature. All AI-assisted text, code,
+numerical results, and references were subsequently reviewed and verified by the
+authors against primary sources or independent computation, and edited as
+needed. The authors take full responsibility for the content of the publication.
+No AI system is listed as an author, in line with COPE, ICMJE, and the relevant
+publisher policies.
+
 \bibliographystyle{unsrtnat} % elsarticle-num.bst not installed on this system;
                               % unsrtnat (natbib-compatible, numbered, citation order) is the closest available equivalent
 \bibliography{P2_references}
