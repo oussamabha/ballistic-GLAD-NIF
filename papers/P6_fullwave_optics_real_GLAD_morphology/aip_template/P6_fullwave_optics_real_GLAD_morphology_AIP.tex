@@ -43,16 +43,16 @@ modelled with effective-medium approximations or idealised tilted cylinders. We
 instead run finite-difference time-domain (FDTD) electromagnetic simulations
 directly on the voxelised morphology of a ballistic GLAD growth model, with a
 reflection-accounting Nicolson--Ross--Weir index retrieval validated to
-\SI{0.1}{\percent} on a known dielectric slab, tabulated Lorentz--Drude and
-literature dispersion for the constituent materials, and an oxide core--shell
-geometry. Comparing to a real Cu GLAD film measured by Mueller-matrix
-ellipsometry, a three-realisation average of the non-depolarising Mueller
-elements moves three of four adjustable elements toward the measured, genuinely
-depolarised values, while one element moves the wrong way and the largest
-depolarisation signature cannot be reproduced by realisation averaging at all --
-a first-principles incoherent-sum formulation is required. A nine-angle sweep on
-grid-rebuild-corrected voxels gives a physically sane, monotonically increasing
-void fraction with deposition angle and an effective index consistent in
+\SI{0.1}{\percent} on a known dielectric slab and tabulated Lorentz--Drude
+dispersion for the film material. Comparing to a real Cu GLAD film measured by
+Mueller-matrix ellipsometry, a three-realisation average of the non-depolarising
+Mueller elements moves three of four adjustable elements toward the measured,
+genuinely depolarised values, while one element moves the wrong way and the
+largest depolarisation signature cannot be reproduced by realisation averaging
+at all -- a first-principles incoherent-sum formulation is required. A
+nine-angle sweep on grid-rebuild-corrected voxels gives a physically sane void
+fraction that increases with deposition angle (one exception within a
+single-cross-section method's noise floor) and an effective index consistent in
 direction, though not magnitude, with a published Cu$_2$O optical Bruggeman
 trend. The results establish that full-wave modelling on the true simulated
 morphology is tractable and partially reproduces measured optical anisotropy,
@@ -71,8 +71,11 @@ porosity estimate, or with full-wave calculations on an idealised geometry of
 tilted cylinders. Neither uses the actual film morphology, and neither naturally
 produces depolarisation. Here we take the morphology produced by a validated
 ballistic GLAD growth model, voxelise it, and run full-wave FDTD directly on it,
-with realistic material dispersion and an oxide shell, and we compare the result
-to a real Cu GLAD film measured by Mueller-matrix ellipsometry.
+with realistic material dispersion, and we compare the result to a real Cu
+GLAD film measured by Mueller-matrix ellipsometry. An oxide core--shell
+extension was investigated separately (Section~\ref{ssec:oxide}) but is not
+part of the FDTD results reported below, which use a single dispersive
+material throughout.
 
 % ============================================================
 \section{Methods}
@@ -81,28 +84,52 @@ to a real Cu GLAD film measured by Mueller-matrix ellipsometry.
 \subsection{Morphology}
 Film morphology is taken from the ballistic bead model of the companion paper,
 at atomic radius \SI{0.128}{nm}, using the grid-rebuild-corrected engine build.
-The atomic configuration is voxelised; an oxide core--shell is applied with a
-shell thickness taken from a prior thickness sweep. The underlying ballistic
-morphology itself is purely metallic-Cu geometry with no surface mobility
-(companion paper); the oxide shell is applied afterward as a static optical
-layer, not as a growth process. The companion atomistic-anchor paper's
-room-temperature Cu adatom diffusion length ($L_D\approx\SIrange{20}{30}{nm}$)
-is a bare-metal-surface estimate; adatom mobility on an oxidising or
-already-oxidised surface is a distinct transport problem not addressed by
-either paper, and the two should not be assumed to share the same mobility
-regime without a dedicated calibration.
+The atomic configuration is voxelised and assigned a single dispersive
+material throughout (Section~\ref{ssec:dispersion}); the results reported
+below (Sections~\ref{ssec:mueller}--\ref{ssec:sweep}) do not include an oxide
+shell. The morphology itself has no surface mobility (companion paper): it is
+a frozen ballistic geometry, and any oxidation of a real deposited film is a
+separate physical process not modelled here or in the companion atomistic-
+anchor paper, whose room-temperature Cu adatom diffusion length
+($L_D\approx\SIrange{20}{30}{nm}$) is likewise a bare-metal-surface estimate.
+
+\subsection{Oxide core--shell: investigated, not included in the reported results}
+\label{ssec:oxide}
+An oxide core--shell extension (shell thickness swept at \SIlist{2;4;6;8}{nm})
+was investigated as a route to a more realistic optical model. Two findings
+stopped its inclusion. First, thickness values beyond the thinnest tested
+(\SI{2}{nm}, oxide volume fraction \SI{25.6}{\percent}) leave the geometry
+majority-oxide rather than a thin surface skin (up to \SI{80.5}{\percent}
+oxide by the thickest value tested) -- an artefact of the voxel grid's finite
+resolution, not a controlled thickness series. Second, even at the thinnest,
+most defensible value, a resolution sweep (40--160) gave non-monotonic,
+non-converging percentage differences (\num{44.47}/\num{78.01}/\num{51.61}/
+\SI{62.46}{\percent} at resolution 40/80/120/160), consistent with MEEP's own
+documented first-order (rather than the usual second-order) convergence at
+interfaces between two strongly dispersive materials -- a genuine numerical
+difficulty, not a modelling error, but one that leaves no resolution tested
+here trustworthy enough to report a converged oxide-shell result. The reported
+Mueller-matrix and angle-sweep results below therefore use a single dispersive
+material with no oxide shell; resolving the interface-convergence problem
+(e.g.\ explicit subpixel averaging at the oxide boundary) is future work.
 
 \subsection{FDTD and index retrieval}
+\label{ssec:dispersion}
 FDTD is performed with MEEP. The effective index is retrieved from the complex
 reflection and transmission with a Nicolson--Ross--Weir procedure that accounts
 for multiple internal reflections; on a known $\varepsilon = 4$ slab this
 retrieval is accurate to \SI{0.1}{\percent}, against roughly \SI{5}{\percent}
 for a Born approximation. Both linear polarisations are computed. Material
-dispersion uses a Lorentz--Drude fit for tungsten \citep{rakic1998optical} and
-literature optical constants for Cu$_2$O \citep{malerba2011cu2o}, cross-checked
+dispersion for the single film material used in the results below is a
+Lorentz--Drude fit for tungsten \citep{rakic1998optical}, cross-checked
 against an independent REELS-based tungsten dataset
 \citep{werner2009optical} that disagrees with the Rakic/Palik consensus
-value at 500\,nm by a known, technique-dependent margin.
+value at 500\,nm by a known, technique-dependent margin -- an illustrative
+choice of dispersion on the Cu-derived ballistic geometry, not a claim that
+the film is tungsten (see the companion papers for the same convention).
+Literature Cu$_2$O optical constants \citep{malerba2011cu2o} were used only
+in the oxide-shell investigation of Section~\ref{ssec:oxide}, not in the
+reported Mueller-matrix or angle-sweep results.
 
 \subsection{Measured reference}
 The experimental reference is a Cu GLAD film measured by spectroscopic
@@ -235,9 +262,8 @@ is a same-direction consistency check, not a validated quantitative match.
 \section{Discussion}
 \label{sec:discussion}
 Full-wave FDTD on the true voxelised ballistic morphology, with validated index
-retrieval, realistic dispersion, and an oxide shell, is tractable and
-partially reproduces the measured Mueller-matrix anisotropy of a real Cu GLAD
-film. The results are honestly mixed: three of four adjustable non-depolarising
+retrieval and realistic material dispersion, is tractable and partially
+reproduces the measured Mueller-matrix anisotropy of a real Cu GLAD film. The results are honestly mixed: three of four adjustable non-depolarising
 elements improve under realisation averaging, one worsens, and the dominant
 depolarisation channel is inaccessible to the averaging method used. The angle
 sweep is qualitatively correct but not a quantitative optical validation given
